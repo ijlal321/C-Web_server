@@ -6,3 +6,5 @@ OUT = main.exe
 
 $(OUT): $(SRC) $(OBJ)
 	$(CC) $(CFLAGS) $(SRC) $(OBJ) -o $(OUT)  -lws2_32
+
+# $ gcc main.c external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o -o main.exe -lws2_32
