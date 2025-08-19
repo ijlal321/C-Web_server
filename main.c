@@ -15,10 +15,11 @@
 
 // Handler for '/'
 static int RootHandler(struct mg_connection *conn, void *cbdata) {
-    mg_printf(conn,
-        "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\n\r\n");
-    mg_printf(conn, "<html><body><h1>Welcome to the CivetWeb C server!</h1><p>Try <a href=\"/file\">/file</a> to see the file.html.</p></body></html>\n");
-    return 1;
+    const char *msg = "<html><body><h1>Welcome to the CivetWeb C server!</h1><p>Try <a href=\"/file\">/file</a> to see the file.html.</p></body></html>\n";
+    size_t len = strlen(msg);
+    mg_send_http_ok(conn, "text/html", len);
+    mg_write(conn, msg, len);
+    return 200;
 }
 
 // Handler for '/file'
