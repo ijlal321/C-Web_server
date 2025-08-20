@@ -1,16 +1,25 @@
+
 CC = gcc
-CFLAGS = -Wall
-SRC = main.c
+CFLAGS = -Wall -Iexternal/civetweb/include -I./include  -Isrc
+SRC = src/main.c src/server.c src/web_socket.c
 OBJ = external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o
-OUT = main.exe
+OUT = bin/main.exe
+
+all: $(OUT)
 
 $(OUT): $(SRC) $(OBJ)
-	$(CC) $(CFLAGS) $(SRC) $(OBJ) -o $(OUT)  -lws2_32
+	$(CC) $(CFLAGS) $(SRC) $(OBJ) -o $(OUT) -lws2_32 -pthread
 
-# $ gcc main.c external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o -o main.exe -lws2_32
-# gcc ws_main.c external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o -o ws_main.exe -lws2_32
+run: $(OUT)
+	./$(OUT)
 
+clean:
+	rm -f $(OUT)
 
-# to compile civetweb 
-# make WITH_WEBSOCKET=1
+rebuild: clean all
+
+.PHONY: all run clean rebuild
+
+# To compile civetweb with websocket support:
+# make -C external/civetweb WITH_WEBSOCKET=1
 
