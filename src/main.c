@@ -20,13 +20,13 @@ int main() {
 
     init_handlers(ctx); // point to web file for different routes
 
-    printf("Server listening on http://localhost:%s/\n", PORT);
+    printf("Http Server listening on http://localhost:%s/\n", PORT);
 
     struct ws_manager ws_mgr;
     ws_manager_init(&ws_mgr);
 
     ws_start(ctx, &ws_mgr);
-
+    printf("Web Socket Listening on http://localhost:%s%s\n",PORT, WEB_SOCKET_PATH);
 
     getchar();
     mg_stop(ctx);
