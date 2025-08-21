@@ -35,7 +35,7 @@
 
 */
 
-void broadcast(const char *msg, size_t len, struct WsClientManager * ws_mgr) {
+void broadcast(const char *msg, size_t len, struct WsConnectionManager * ws_mgr) {
     for (int i = 0; i < ws_mgr->client_count; ++i) {
         mg_websocket_write(ws_mgr->clients[i], MG_WEBSOCKET_OPCODE_TEXT, msg, len);
     }
@@ -45,7 +45,7 @@ void broadcast(const char *msg, size_t len, struct WsClientManager * ws_mgr) {
 // ================= WS HANDLERS ===============
 
 int ws_connect(const struct mg_connection *conn, void *cbdata) {
-    struct WsClientManager * ws_mgr = (struct WsClientManager *)cbdata;
+    struct WsConnectionManager * ws_mgr = (struct WsConnectionManager *)cbdata;
     if (ws_mgr->client_count < 10) {
         ws_mgr->clients[ws_mgr->client_count++] = (struct mg_connection *)conn;
         printf("Client connected. Total: %d\n", ws_mgr->client_count);
@@ -60,14 +60,14 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
 }
 
 int ws_data(struct mg_connection *conn, int opcode, char *data, size_t len, void *cbdata) {
-    struct WsClientManager * ws_mgr = (struct WsClientManager *)cbdata;
+    struct WsConnectionManager * ws_mgr = (struct WsConnectionManager *)cbdata;
     printf("Message from client: %.*s\n", (int)len, data);
     broadcast(data, len, ws_mgr);  // Send message to all clients
     return 1;  // keep connection open. 0 means close it.
 }
 
 void ws_close(const struct mg_connection *conn, void *cbdata) {
-    struct WsClientManager * ws_mgr = (struct WsClientManager *)cbdata;
+    struct WsConnectionManager * ws_mgr = (struct WsConnectionManager *)cbdata;
     // Remove the connection from the client list
     for (int i = 0; i < ws_mgr->client_count; ++i) {
         if (ws_mgr->clients[i] == conn) {
@@ -84,17 +84,17 @@ void ws_close(const struct mg_connection *conn, void *cbdata) {
 
 // =============================
 
-int ws_manager_init(struct WsClientManager * ws_mgr){
-    memset(ws_mgr, 0, sizeof(struct WsClientManager));
+int ws_manager_init(struct WsConnectionManager * ws_mgr){
+    memset(ws_mgr, 0, sizeof(struct WsConnectionManager));
     return 0;
 }
 
-int ws_manager_destroy(struct WsClientManager * ws_mgr){
+int ws_manager_destroy(struct WsConnectionManager * ws_mgr){
     // will be needing this when mutexing connection manager. 
     return 0;
 }
 
-void ws_start(struct mg_context * ctx, struct WsClientManager * ws_mgr){
+void ws_start(struct mg_context * ctx, struct WsConnectionManager * ws_mgr){
     mg_set_websocket_handler(ctx, WEB_SOCKET_PATH,
                             ws_connect,
                             ws_ready,

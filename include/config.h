@@ -10,4 +10,6 @@
 #define MAX_WEB_SOCKET_CLIENTS 20
 
 #define WEB_SOCKET_PATH "/chat"
+
+#define DEFAULT_CLIENT_MAX_FILES_SIZE 20
 #endif

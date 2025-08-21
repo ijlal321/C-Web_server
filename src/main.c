@@ -22,7 +22,7 @@ int main() {
 
     printf("Http Server listening on http://localhost:%s/\n", PORT);
 
-    struct WsClientManager ws_mgr;
+    struct WsConnectionManager ws_mgr;
     ws_manager_init(&ws_mgr);  // prepare structs for use
 
     ws_start(ctx, &ws_mgr);  // add handlers and start server

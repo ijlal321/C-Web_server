@@ -1,12 +1,22 @@
-#ifndef WEB_SOCKET_H
-#define WEB_SOCKET_H
+#ifndef FILE_MANAGER_H
+#define FILE_MANAGER_H
+
 #include <pthread.h>
-
 #include "config.h"
-#include "civetweb.h"
-#include "file_manager.h"
 
-// #include <pthread.h> // intellisense may give error on Windows if windows phthread lib not included properly.
+/*
+    Aim of this file is to use WebSocket communiation to 
+    keep track of all files available on server or clients.
+*/
+
+struct FileInfo{
+    char * name;  // The file name (without path)
+    size_t size;    // File size in bytes
+    char * type;  // MIME type (e.g. "image/png", "application/pdf")
+    struct mg_connection *conn;  // we can get name etc from here.
+    int is_transfering; // keep track if a file is being transfered.
+};
+
 
 struct Ws_Client{
     struct mg_connection *conn;        // WebSocket connection
@@ -25,18 +35,13 @@ struct Ws_Server{
     // I dont think we will be needing condition variables here.
 };
 
-struct WsConnectionManager{
+struct WsFileManager{
     struct Ws_Client clients[MAX_WEB_SOCKET_CLIENTS];
     int client_count;
     struct Ws_Server Server;
     pthread_mutex_t lock;             
     // I dont think we will be needing condition variables here.
 };
-
-void ws_start(struct mg_context * ctx, struct WsConnectionManager * ws_mgr);
-
-int ws_manager_init(struct WsConnectionManager * ws_mgr);
-int ws_manager_destroys(struct WsConnectionManager * ws_mgr);
 
 
 #endif
