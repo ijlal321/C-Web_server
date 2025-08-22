@@ -1,15 +1,8 @@
-
-#include <windows.h>
-
-#include "civetweb.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include "config.h"
 #include "server.h"
 #include "web_socket.h"
+#include "file_tracker.h"
 
+#include "app_context.h"  // Global Context
 
 int main() {
     struct mg_context *ctx = initialize_server();
@@ -18,15 +11,17 @@ int main() {
         return 1;
     }
 
-    init_handlers(ctx); // point to web file for different routes
+    init_handlers(ctx);
 
-    printf("Http Server listening on http://localhost:%s/\n", PORT);
+    printf("HTTP Server listening on http://localhost:%s/\n", PORT);
 
-    struct WsConnectionManager ws_mgr;
-    ws_manager_init(&ws_mgr);  // prepare structs for use
+    struct AppContext app_ctx = {0};  // zero-initialize
 
-    ws_start(ctx, &ws_mgr);  // add handlers and start server
-    printf("Web Socket Listening on http://localhost:%s%s\n",PORT, WEB_SOCKET_PATH);
+    ws_manager_init(&app_ctx.ws_mgr);  //  TODO: Error Handling
+    file_tracker_init(&app_ctx.file_tracker);  //  TODO: Error Handling
+
+    ws_start(ctx, &app_ctx); // need ws_mgr and file_mgr for tracking files with ws
+    printf("WebSocket listening on http://localhost:%s%s\n", PORT, WEB_SOCKET_PATH);
 
     getchar();
     mg_stop(ctx);

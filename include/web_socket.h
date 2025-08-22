@@ -4,39 +4,22 @@
 
 #include "config.h"
 #include "civetweb.h"
-#include "file_manager.h"
 
-// #include <pthread.h> // intellisense may give error on Windows if windows phthread lib not included properly.
+// forward declaring - to avoid loop
+struct AppContext;
 
-struct Ws_Client{
-    struct mg_connection *conn;        // WebSocket connection
-    char *client_id;                   // Optional: user ID, token, etc.
-    struct FileInfo files[DEFAULT_CLIENT_MAX_FILES_SIZE];    // We will double it if needed. 
-    int nr_files;               
-    pthread_mutex_t lock;             
-    // I dont think we will be needing condition variables here.
-};
 
-struct Ws_Server{
-    char * server_name;  // do i need it ? also should i use array ?
-    struct FileInfo files[DEFAULT_CLIENT_MAX_FILES_SIZE];    // We will double it if needed. 
-    int nr_files;             
-    pthread_mutex_t lock;             
-    // I dont think we will be needing condition variables here.
-};
-
-struct WsConnectionManager{
-    struct Ws_Client clients[MAX_WEB_SOCKET_CLIENTS];
+struct WsManager{
+    struct mg_connection * clients[MAX_WEB_SOCKET_CLIENTS];
     int client_count;
-    struct Ws_Server Server;
     pthread_mutex_t lock;             
     // I dont think we will be needing condition variables here.
 };
 
-void ws_start(struct mg_context * ctx, struct WsConnectionManager * ws_mgr);
+void ws_start(struct mg_context * ctx, struct AppContext * app_ctx);
 
-int ws_manager_init(struct WsConnectionManager * ws_mgr);
-int ws_manager_destroys(struct WsConnectionManager * ws_mgr);
+int ws_manager_init(struct WsManager * ws_mgr);
+int ws_manager_destroys(struct WsManager * ws_mgr);
 
 
 #endif
