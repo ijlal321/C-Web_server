@@ -1,7 +1,7 @@
 
 CC = gcc
-CFLAGS = -Wall -Iexternal/civetweb/include -I./include  -Isrc
-SRC = src/main.c src/server.c src/web_socket.c
+CFLAGS = -Wall -Iexternal/civetweb/include -Iexternal/cJSON -I./include  -Isrc
+SRC = src/main.c src/server.c src/web_socket.c src/file_tracker.c external/cJSON/cJSON.c 
 OBJ = external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o
 OUT = bin/main.exe
 
