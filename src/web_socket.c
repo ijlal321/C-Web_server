@@ -61,7 +61,7 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
     
     printf("Connected to client. Tota; Clients: %d\n", ws_mgr->client_count);
 
-    struct ClientFiles * new_client = approve_client_connection(conn, &app_ctx->file_tracker);
+    // struct ClientFiles * new_client = approve_client_connection(conn, &app_ctx->file_tracker);
     // send new client all server data
     // mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, msg, strlen(msg));
 }
@@ -105,7 +105,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     if (cur_client == NULL){
         printf("Non Connected Client is trying to talk, hmmm,,,,\n");
         pthread_mutex_unlock(&file_tracker->lock);
-        return;
+        return 1;
     }
     pthread_mutex_lock(&cur_client->lock);  // lock client before unlocking manager.
     pthread_mutex_unlock(&file_tracker->lock);
