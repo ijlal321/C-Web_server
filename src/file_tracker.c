@@ -1,5 +1,4 @@
 
-
 #include "file_tracker.h"
 
 int file_tracker_init(struct FileTracker * file_tracker){
@@ -37,4 +36,24 @@ int file_tracker_init(struct FileTracker * file_tracker){
  */
 struct ClientFiles * search_client_in_accepted_clients(struct mg_connection *conn, struct FileTracker * file_tracker){
     return NULL;
+}
+
+/**
+ * @brief This is called, when someone on server accepts a 
+ * @note No Internal locking. Make sure data is locked before calling fucntion.
+*/
+struct ClientFiles * approve_client_connection(struct mg_connection *conn, struct FileTracker * file_tracker){
+    // Check if client already exists
+
+    // If space is available, add client
+
+    // add new client to list
+    struct ClientFiles * new_client = &file_tracker->clients[file_tracker->client_count];
+    new_client->conn = conn;
+    new_client->client_id =  file_tracker->client_count;
+    pthread_mutex_init(&new_client->lock, NULL);
+    file_tracker->client_count ++;
+    
+
+    return new_client;
 }

@@ -13,14 +13,15 @@ struct FileInfo{
     char * name;  // The file name (without path)
     size_t size;    // File size in bytes
     char * type;  // MIME type (e.g. "image/png", "application/pdf")
-    struct mg_connection *conn;  // we can get name etc from here.
+    // struct mg_connection *conn;  // we can get name etc from here.
     int is_transfering; // keep track if a file is being transfered.
 };
 
 
 struct ClientFiles{
+    int status; // TBD: What to do with it.
     struct mg_connection *conn;        // WebSocket connection
-    char *client_id;                   // Optional: user ID, token, etc.
+    int client_id;                   // Optional: user ID, token, etc.
     struct FileInfo files[DEFAULT_CLIENT_MAX_FILES_SIZE];    // We will double it if needed. 
     int file_count;               
     pthread_mutex_t lock;             
@@ -28,6 +29,7 @@ struct ClientFiles{
 };
 
 struct ServerFiles{
+    int serverId;
     char server_name[64];  // do i need it ? also should i use array ?
     struct FileInfo files[DEFAULT_CLIENT_MAX_FILES_SIZE];    // We will double it if needed. 
     int file_count;             
@@ -48,12 +50,15 @@ enum WsOPCodes{
     REMOVE_FILE,  // REMOVE THIS SINGLE FILE
     ASK_FILES,   // GIMME ALL FILES YOU GOT 
     UPLOAD_FILE, // ask client to upload this file.
+    UPDATE_NAME, // ask other party to UPDATE SENDER NAME [HELPFUL IN PATRY MODE]
 };
 
 // ========= Functions ============
 
 int file_tracker_init(struct FileTracker * file_tracker);
 
-
 struct ClientFiles * search_client_in_accepted_clients(struct mg_connection *conn, struct FileTracker * file_tracker);
+
+struct ClientFiles *  accept_client(struct mg_connection *conn, struct FileTracker * file_tracker);
+
 #endif

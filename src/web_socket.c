@@ -58,13 +58,15 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
     struct WsManager *ws_mgr = &app_ctx->ws_mgr;
 
     ws_mgr->clients[ws_mgr->client_count++] = conn;
+    
     printf("Connected to client. Tota; Clients: %d\n", ws_mgr->client_count);
-    // const char *msg = "Connected to !";
+
+    struct ClientFiles * new_client = approve_client_connection(conn, &app_ctx->file_tracker);
+    // send new client all server data
     // mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, msg, strlen(msg));
 }
 
 int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, void *cbdata) {
-    return 1;
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct WsManager * ws_mgr = &app_ctx->ws_mgr;
     struct FileTracker * file_tracker = &app_ctx->file_tracker;
