@@ -1,3 +1,6 @@
 [submodule "external/civetweb"]
 	path = external/civetweb
 	url = https://github.com/civetweb/civetweb.git
+[submodule "external/webview"]
+	path = external/webview
+	url = https://github.com/webview/webview
