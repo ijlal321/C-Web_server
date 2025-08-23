@@ -64,6 +64,7 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
 }
 
 int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, void *cbdata) {
+    return 1;
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct WsManager * ws_mgr = &app_ctx->ws_mgr;
     struct FileTracker * file_tracker = &app_ctx->file_tracker;
