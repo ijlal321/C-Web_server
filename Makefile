@@ -1,27 +1,56 @@
 
-CC = gcc
-CFLAGS = -Wall -Iexternal/civetweb/include -Iexternal/cJSON -I./include  -Isrc -Iexternal/webview/core/include/
-SRC = src/main.c src/server.c src/web_socket.c src/file_tracker.c external/cJSON/cJSON.c 
-OBJ = external/civetweb/out/src/civetweb.o external/civetweb/out/resources/res.o
-OUT = bin/main.exe
+# Compiler & tools
+CC      = gcc
+CFLAGS  = -Wall -Wextra
 
-all: $(OUT)
+# ===================== External Libraries ===============
+# Include paths
+INCLUDES = \
+    -Iinclude \
+    -Iexternal/civetweb/include \
+    -Iexternal/webview/core/include \
+    -Iexternal/cJSON
 
-$(OUT): $(SRC) $(OBJ)
-	$(CC) $(CFLAGS) $(SRC) $(OBJ) -o $(OUT) -lws2_32 -pthread -Lexternal/webview/build/core -lwebview
+# Library search paths
+LIB_PATHS = \
+    -Lexternal/civetweb \
+    -Lexternal/webview/build/core
 
-run: $(OUT)
-	./$(OUT)
+# Link libraries (no file extensions, works cross-platform)
+LIBS = -lcivetweb -lwebview
+
+# =====================================================
+
+
+# Other LIBS (BUILT IN)   TODO: WINDOWS ONLY lws2_32 is. need to fix.
+LIBS += -lws2_32 -pthread
+
+
+# Project files
+SRC_DIR     = src
+SOURCES     = $(wildcard $(SRC_DIR)/*.c) external/cJSON/cJSON.c   # all .c in src + cJSON (External)
+OBJECTS     = $(SOURCES:.c=.o)
+TARGET      = bin/webserver
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) -o $@ $^ $(LIB_PATHS) $(LIBS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+run: $(TARGET)
+	$(TARGET)
 
 clean:
-	rm -f $(OUT)
+	rm -f $(OBJECTS) $(TARGET)
 
-rebuild: clean all
-
-.PHONY: all run clean rebuild
-
+ 
 # To compile civetweb with websocket support:
-# make -C external/civetweb WITH_WEBSOCKET=1
+# make -C external/civetweb lib WITH_WEBSOCKET=1 # making a static lib
 
 
 # when downloading repo 
