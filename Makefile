@@ -1,4 +1,7 @@
 
+#TODO: Copy .dll of webview next to main.c
+
+
 # Compiler & tools
 CC      = gcc
 CFLAGS  = -Wall -Wextra
@@ -8,13 +11,13 @@ CFLAGS  = -Wall -Wextra
 INCLUDES = \
     -Iinclude \
     -Iexternal/civetweb/include \
-    -Iexternal/webview/core/include \
+    -Iexternal/webview/core/include/ \
     -Iexternal/cJSON
 
 # Library search paths
 LIB_PATHS = \
     -Lexternal/civetweb \
-    -Lexternal/webview/build/core
+    -Lexternal/webview/build/core/
 
 # Link libraries (no file extensions, works cross-platform)
 LIBS = -lcivetweb -lwebview
@@ -29,7 +32,8 @@ LIBS += -lws2_32 -pthread
 # Project files
 SRC_DIR     = src
 OBJ_DIR 	= build/obj
-SOURCES     = $(wildcard $(SRC_DIR)/*.c) external/cJSON/cJSON.c   # all .c in src + cJSON (External)
+SOURCES     = $(wildcard $(SRC_DIR)/*.c) \
+			external/cJSON/cJSON.c   # all .c in src + cJSON (External)
 OBJECTS 	= $(patsubst %.c,$(OBJ_DIR)/%.o,$(notdir $(SOURCES)))
 TARGET		= bin/webserver
 
@@ -57,7 +61,7 @@ run: $(TARGET)
 	./$(TARGET)
 
 clean:
-	rm -rf $(OBJ_DIR) $(TARGET)
+	rm -f $(OBJECTS) $(TARGET)
 
  
 # To compile civetweb with websocket support:
@@ -71,3 +75,9 @@ clean:
 # cmake -G Ninja -B build -S . -D CMAKE_BUILD_TYPE=Release
 # cmake --build build
 
+
+#webview
+# cmake -G Ninja -B build -S . -D CMAKE_BUILD_TYPE=Release
+# cmake --build build
+# IMP: dont forget to copy dll files from
+# external\webview\build\core
