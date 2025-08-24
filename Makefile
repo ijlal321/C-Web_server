@@ -12,7 +12,8 @@ INCLUDES = \
     -Iinclude \
     -Iexternal/civetweb/include \
     -Iexternal/webview/core/include/ \
-    -Iexternal/cJSON
+    -Iexternal/cJSON \
+	-Iexternal/uthash
 
 # Library search paths
 LIB_PATHS = \

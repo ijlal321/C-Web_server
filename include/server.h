@@ -1,10 +1,10 @@
 #ifndef SERVER_H
 #define SERVER_H
 
-struct mg_context * initialize_server();
+#include "file_store.h"
 
-void init_handlers(struct mg_context * ctx);
-
-
+struct Server{
+    struct File * files;   
+};
 
 #endif

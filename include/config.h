@@ -13,4 +13,9 @@
 #define WEB_SOCKET_PATH "/chat"
 
 #define DEFAULT_CLIENT_MAX_FILES_SIZE 20
+
+// =========== UI Configs ==========
+#define UI_WINDOW_TITLE "Share APP"
+#define UI_WINDOW_WIDTH 480
+#define UI_WINDOW_HEIGHT 320
 #endif

@@ -43,23 +43,21 @@
 
 int ws_connect(const struct mg_connection *conn, void *cbdata) {
     struct AppContext *app_ctx = (struct AppContext *)cbdata;
-    struct WsManager *ws_mgr = &app_ctx->ws_mgr;
+    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
-    // Check if space is available — but don't store yet
-    if (ws_mgr->client_count < MAX_WEB_SOCKET_CLIENTS) {
-        return 0;  // Accept connection
-    }
+    // accept all connections
+    return 0;
 
     return 1;  // Reject connection
 }
 
 void ws_ready(struct mg_connection *conn, void *cbdata) {
     struct AppContext *app_ctx = (struct AppContext *)cbdata;
-    struct WsManager *ws_mgr = &app_ctx->ws_mgr;
+    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
-    ws_mgr->clients[ws_mgr->client_count++] = conn;
     
-    printf("Connected to client. Tota; Clients: %d\n", ws_mgr->client_count);
+
+    printf("Connected to client. Tota; Clients: %d\n", HASH_COUNT(connection_mgr->clients));
 
     // struct ClientFiles * new_client = approve_client_connection(conn, &app_ctx->file_tracker);
     // send new client all server data
@@ -67,6 +65,7 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
 }
 
 int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, void *cbdata) {
+    /*
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct WsManager * ws_mgr = &app_ctx->ws_mgr;
     struct FileTracker * file_tracker = &app_ctx->file_tracker;
@@ -140,34 +139,18 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
 
     printf("Message from client: %.*s\n", (int)len, data);
     return 1;  // keep connection open. 0 means close it.
+    */
 }
 
 void ws_close(const struct mg_connection *conn, void *cbdata) {
-    struct AppContext * app_ctx = (struct AppContext *)cbdata;
-    struct WsManager * ws_mgr = &app_ctx->ws_mgr;
-    // Remove the connection from the client list
-    for (int i = 0; i < ws_mgr->client_count; ++i) {
-        if (ws_mgr->clients[i] == conn) {
-            for (int j = i; j < ws_mgr->client_count - 1; ++j) {
-                ws_mgr->clients[j] = ws_mgr->clients[j + 1];
-            }
-            --ws_mgr->client_count;
-            printf("Client disconnected. Total: %d\n", ws_mgr->client_count);
-            break;
-        }
-    }
+    struct AppContext *app_ctx = (struct AppContext *)cbdata;
+    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
+
+    printf("Client disconnected. Total: %d\n", HASH_COUNT(connection_mgr->clients));
 }
  
 
 // =============================
-
-int ws_manager_init(struct WsManager * ws_mgr){
-    memset(ws_mgr, 0, sizeof(struct WsManager));
-    if (pthread_mutex_init(&ws_mgr->lock, NULL) != 0){
-        return -1;
-    }
-    return 0;
-}
 
 int ws_manager_destroy(struct WsManager * ws_mgr){
     // will be needing this when mutexing connection manager. 

@@ -1,4 +1,4 @@
-#include "server.h"
+#include "http_server.h"
 #include "config.h"
 #include <memory.h>
 #include "civetweb.h"
@@ -12,7 +12,7 @@
  *
  * @return Pointer to the initialized mg_context on success, or NULL on failure.
  */
-struct mg_context * initialize_server() {
+struct mg_context * http_initialize_server() {
     struct mg_callbacks callbacks;
     memset(&callbacks, 0, sizeof(callbacks));
 
@@ -55,6 +55,6 @@ static int RootHandler(struct mg_connection *conn, void *cbdata) {
     return 200;
 }
 
-void init_handlers(struct mg_context * ctx){
+void http_init_handlers(struct mg_context * ctx){
     mg_set_request_handler(ctx, "/*", RootHandler, 0); // route to this case in all cases
 }

@@ -3,11 +3,12 @@
 #define APP_CONTEXT_H
 
 #include "web_socket.h"
-#include "file_tracker.h"
+#include "connection_manager.h"
+#include "webview/webview.h"
 
 struct AppContext {
-    struct WsManager ws_mgr;
-    struct FileTracker file_tracker;
+    webview_t w;
+    struct ConnectionManager connection_mgr;
 };
 
 #endif
