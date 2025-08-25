@@ -8,13 +8,15 @@
 // forward declaring - to avoid loop
 struct AppContext;
 
-
-struct WsManager{
-    struct mg_connection * clients[MAX_WEB_SOCKET_CLIENTS];
-    int client_max_size;
-    int client_count;
-    pthread_mutex_t lock;             
-    // I dont think we will be needing condition variables here.
+enum WsOPCodes{
+    ADD_FILES = 0,  // HEY ADD THIS [LIST] OF FILES I HAVE TO YOUR DB
+    REMOVE_FILE,  // REMOVE THIS SINGLE FILE
+    ASK_FILES,   // GIMME ALL FILES YOU GOT 
+    UPLOAD_FILE, // ask client to upload this file.
+    UPDATE_NAME, // ask other party to UPDATE SENDER NAME [HELPFUL IN PATRY MODE]
+    REGISTER, // send a uiique uuid, and ask server to register it
+    RECONNECT, // send previous UUID and try to reconnect.
+    PUBLIC_NAME, // Sending your public name
 };
 
 void ws_start(struct mg_context * ctx, struct AppContext * app_ctx);

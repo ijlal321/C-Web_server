@@ -19,3 +19,9 @@
 #define UI_WINDOW_WIDTH 480
 #define UI_WINDOW_HEIGHT 320
 #endif
+
+
+// =====================================
+
+#define PRIVATE_ID_SIZE 33  // 16 byte hex = 32 byte char + '\0;
+#define NAME_STRING_SIZE 127

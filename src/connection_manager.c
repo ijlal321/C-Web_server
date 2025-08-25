@@ -2,6 +2,8 @@
 
 #include "app_context.h"  // Global Context
 
+#include <cJSON.h>
+
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
         printf("Error Creating RW_lock\n");
@@ -34,12 +36,28 @@ void * start_connections(void * args){
 }
 
 
-struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
+int cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connection *conn, cJSON *data){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
+
+    const cJSON * private_key = cJSON_GetObjectItem(data, "private_key");
+    if (!cJSON_IsString(private_key)){
+        printf("Private Key not available\n");
+        return 0; // meaning close connection with this one.
+    }
+    
     struct Client * new_client = malloc(sizeof(struct Client)); 
-    new_client->id = connection_mgr->id;
-    new_client->approved = 0;
+    
+    strncpy(&new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-2);
+    new_client->private_id[PRIVATE_ID_SIZE-1] = '\0';
+
     new_client->conn = conn;
+    new_client->approved = 0;
+    int public_id = HASH_COUNT(connection_mgr->clients) + 1;
+    new_client->public_id = public_id;
     pthread_rwlock_init(&new_client->rwlock, NULL);
-    HASH_ADD_
+
+    HASH_ADD_INT(connection_mgr->clients, public_id, new_client);
+
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return 1; // everything Okay. Keep Connection Open.
 }
