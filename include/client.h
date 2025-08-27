@@ -11,7 +11,7 @@ struct Client{
     struct mg_connection * conn;
     int approved;
     pthread_rwlock_t rwlock;
-    // files ?
+    struct File * files; 
     UT_hash_handle hh; // makes ut hashable in uthash
 };
 

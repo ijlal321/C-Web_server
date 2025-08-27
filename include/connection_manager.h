@@ -32,7 +32,13 @@ void cm_disapprove_client(struct ConnectionManager * connection_mgr, const cJSON
 
 void cm_notify_client_disapproved(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
+void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
+void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data);
+
+void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_remove_files_from_UI(struct Server * server, const cJSON * ws_data);
 
 // add Client
 // find Client

@@ -30,6 +30,7 @@
 	<script>
 		// Store clients by public_id
 		const clients = {};
+		const clientFiles = {}; // public_id -> array of files
 
 		function showStatus(msg, isError) {
 			const status = document.getElementById('status-msg');
@@ -49,6 +50,20 @@
 				div.className = 'client ' + (client.approved ? 'approved' : 'disapproved');
 				div.textContent = `ID: ${client.public_id} | Name: ${client.public_name || ''}`;
 				div.style.cursor = 'pointer';
+
+				// Show files for this client, if any
+				const files = clientFiles[client.public_id];
+				if (Array.isArray(files) && files.length > 0) {
+					const filesList = document.createElement('ul');
+					files.forEach(f => {
+						const li = document.createElement('li');
+						li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+						filesList.appendChild(li);
+					});
+					div.appendChild(document.createElement('br'));
+					div.appendChild(filesList);
+				}
+
 				if (client.approved) {
 					div.title = 'Click to disapprove';
 					div.onclick = function() {
@@ -117,6 +132,26 @@
 							}
 						});
 						renderClients();
+					}
+					break;
+				case 8:
+					// msg.data: {file_count, public_id, files: [...]}
+					if (msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
+						clientFiles[msg.data.public_id] = msg.data.files;
+						renderClients();
+					}
+					break;
+				case 9:
+					// msg.data: {file_id, public_id}
+					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined') {
+						const arr = clientFiles[msg.data.public_id];
+						if (Array.isArray(arr)) {
+							const idx = arr.findIndex(f => f.id === msg.data.file_id);
+							if (idx !== -1) {
+								arr.splice(idx, 1);
+								renderClients();
+							}
+						}
 					}
 					break;
 				// Room for other opcodes

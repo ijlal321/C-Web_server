@@ -82,7 +82,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     // get our Custom Opcode {from JSON}
     const cJSON * opcode = cJSON_GetObjectItem(root, "opcode");
     const cJSON * ws_data = cJSON_GetObjectItem(root, "data");
-    if (!cJSON_IsNumber(opcode) || !cJSON_IsObject(ws_data) ) {
+    if (!cJSON_IsNumber(opcode) || !(cJSON_IsObject(ws_data) || cJSON_IsArray(ws_data)) ) {
         printf("Invalid Structure of Websocket Request.'\n");
         cJSON_Delete(root);
         return 1;
@@ -115,10 +115,14 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             break;
         case ADD_FILES:
             // Handle Adding new files in client files
+            cm_add_files(connection_mgr, ws_data);
+            cm_send_files_to_UI(&connection_mgr->server, root);
             printf("Handling ADD_FILES\n");
             break;
         case REMOVE_FILE:
             // Handle removing files from client files
+            cm_remove_files(connection_mgr, ws_data);
+            cm_remove_files_from_UI(&connection_mgr->server, root);
             printf("Handling REMOVE_FILE\n");
             break;
         case ASK_FILES:
