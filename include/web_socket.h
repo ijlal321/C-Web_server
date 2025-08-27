@@ -21,7 +21,7 @@ enum WsOPCodes{
 
 void ws_start(struct mg_context * ctx, struct AppContext * app_ctx);
 
-int ws_manager_destroys(struct WsManager * ws_mgr);
+int ws_manager_destroys();
 
 
 #endif

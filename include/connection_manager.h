@@ -4,6 +4,7 @@
 #include <pthread.h>
 #include "server.h"
 #include "client.h"
+#include "cJSON.h"
 
 
 struct ConnectionManager{

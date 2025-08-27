@@ -42,8 +42,6 @@
 // ================= WS HANDLERS ===============
 
 int ws_connect(const struct mg_connection *conn, void *cbdata) {
-    struct AppContext *app_ctx = (struct AppContext *)cbdata;
-    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
     // accept all connections
     return 0;
@@ -52,8 +50,6 @@ int ws_connect(const struct mg_connection *conn, void *cbdata) {
 }
 
 void ws_ready(struct mg_connection *conn, void *cbdata) {
-    struct AppContext *app_ctx = (struct AppContext *)cbdata;
-    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
     // send a new clientId to client
     // mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, msg, strlen(msg));
@@ -100,13 +96,13 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     if (op == REGISTER){
         int public_id = cm_add_client(connection_mgr, conn, ws_data);
         if (public_id == 0){ // some error occured
+
             return 0;  // close connection.
         }
         char buffer[500];
-        sprintf("{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
+        sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
         mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
         cJSON_Delete(root);
-        cJSON_Delete(ws_data);
         return 1;
     }
 
@@ -160,7 +156,7 @@ void ws_close(const struct mg_connection *conn, void *cbdata) {
 
 // =============================
 
-int ws_manager_destroy(struct WsManager * ws_mgr){
+int ws_manager_destroy(){
     // will be needing this when mutexing connection manager. 
     // pthread_mutex_destroy(&ws_mgr->lock);
     return 0;

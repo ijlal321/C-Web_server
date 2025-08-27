@@ -5,7 +5,7 @@
 #include "config.h"
 
 struct Client{
-    char private_id[PRIVATE_ID_SIZE];  
+    char private_id[PRIVATE_ID_SIZE];// PRIVATE_ID_SIZE = 33  
     int public_id; 
     char public_name[NAME_STRING_SIZE];
     struct mg_connection * conn;

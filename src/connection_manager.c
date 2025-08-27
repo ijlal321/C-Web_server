@@ -47,7 +47,7 @@ int cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connectio
     
     struct Client * new_client = malloc(sizeof(struct Client)); 
     
-    strncpy(&new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-2);
+    strncpy(new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-2);
     new_client->private_id[PRIVATE_ID_SIZE-1] = '\0';
 
     new_client->conn = conn;
@@ -59,5 +59,5 @@ int cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connectio
     HASH_ADD_INT(connection_mgr->clients, public_id, new_client);
 
     pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return 1; // everything Okay. Keep Connection Open.
+    return public_id; // everything Okay. Keep Connection Open.
 }
