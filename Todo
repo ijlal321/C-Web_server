@@ -1,1 +1,4 @@
-CHeck if a client with same private key exists before accepting connection.
+// CHeck if a client with same private key exists before accepting connection.
+
+
+// all error printing will be done at heighest level only

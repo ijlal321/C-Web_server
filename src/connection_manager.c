@@ -13,25 +13,24 @@ void cm_init(struct ConnectionManager * connection_mgr){
 
 void * start_connections(void * args){
     struct AppContext * app_ctx = (struct AppContext *)args;
-
     // ================== HTTP =====================//
-    struct mg_context *ctx = http_initialize_server();
-    if (!ctx) {
+    struct mg_context * cw_ctx = http_initialize_server();
+    if (!cw_ctx) {
         printf("Failed to start CivetWeb server\n");
         exit(1);
     }
 
-    http_init_handlers(ctx);
+    http_init_handlers(cw_ctx, app_ctx);
 
     printf("HTTP Server listening on http://localhost:%s/\n", PORT);
 
     // ================= Websocket and FIle_tracker ============== 
 
-    ws_start(ctx, app_ctx); // need ws_mgr and file_mgr for tracking files with ws
+    ws_start(cw_ctx, app_ctx); // need ws_mgr and file_mgr for tracking files with ws
     printf("WebSocket listening on http://localhost:%s%s\n", PORT, WEB_SOCKET_PATH);
 
     getchar();
-    mg_stop(ctx);
+    mg_stop(cw_ctx);
     return NULL;
 }
 
@@ -45,9 +44,9 @@ int cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connectio
         return 0; // meaning close connection with this one.
     }
     
-    struct Client * new_client = malloc(sizeof(struct Client)); 
+    struct Client * new_client = malloc(sizeof(struct Client));
     
-    strncpy(new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-2);
+    strncpy(new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-1);
     new_client->private_id[PRIVATE_ID_SIZE-1] = '\0';
 
     new_client->conn = conn;

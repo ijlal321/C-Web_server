@@ -19,7 +19,7 @@ enum WsOPCodes{
     PUBLIC_NAME, // Sending your public name
 };
 
-void ws_start(struct mg_context * ctx, struct AppContext * app_ctx);
+void ws_start( struct mg_context * cw_ctx, struct AppContext * app_ctx);
 
 int ws_manager_destroys();
 

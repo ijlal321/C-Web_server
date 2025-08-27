@@ -2,6 +2,7 @@
 #include "config.h"
 #include <memory.h>
 #include "civetweb.h"
+#include "app_context.h"
 
 /**
  * @brief Initializes and starts the CivetWeb server.
@@ -55,6 +56,8 @@ static int RootHandler(struct mg_connection *conn, void *cbdata) {
     return 200;
 }
 
-void http_init_handlers(struct mg_context * ctx){
-    mg_set_request_handler(ctx, "/*", RootHandler, 0); // route to this case in all cases
+void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx){
+    mg_set_request_handler(cw_ctx, "/*", RootHandler, 0); // route to this case in all cases
+
+    
 }

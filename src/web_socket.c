@@ -162,8 +162,8 @@ int ws_manager_destroy(){
     return 0;
 }
 
-void ws_start(struct mg_context * ctx, struct AppContext * app_ctx){
-    mg_set_websocket_handler(ctx, WEB_SOCKET_PATH,
+void ws_start(struct mg_context * cw_ctx, struct AppContext * app_ctx){
+    mg_set_websocket_handler(cw_ctx, WEB_SOCKET_PATH,
                             ws_connect,
                             ws_ready,
                             ws_data,

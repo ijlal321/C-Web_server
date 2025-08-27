@@ -7,15 +7,16 @@
 int main(void) {
     struct AppContext app_ctx = {0};
     
+    // CONNECTIONS: start listening to connections on antoher thread
+    pthread_t th;
+    pthread_create(&th, NULL, start_connections, (void * )&app_ctx); 
+    
     // SCREEN : init screen_size, UI, etc 
     if (ui_init(&app_ctx) != 0){    
         return 1;
     }
 
     cm_init(&app_ctx.connection_mgr);
-    // CONNECTIONS: start listening to connections on antoher thread
-    pthread_t th;
-    pthread_create(&th, NULL, start_connections, (void * )&app_ctx); 
 
 
     // Run the webview

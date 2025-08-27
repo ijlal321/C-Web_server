@@ -2,68 +2,112 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Simple WebSocket Chat</title>
+  <title>Client Approval UI</title>
   <style>
-    body { font-family: sans-serif; max-width: 600px; margin: auto; }
-    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; }
-    #msg { width: 80%; }
+    body { font-family: sans-serif; max-width: 800px; margin: auto; }
+    .section { margin-bottom: 30px; }
+    .client-list { border: 1px solid #ccc; padding: 10px; min-height: 60px; }
+    .client { margin-bottom: 8px; }
+    .approved { color: green; }
+    .not-approved { color: red; }
+    button { margin-left: 10px; }
   </style>
 </head>
 <body>
-  <h1>Chat Room</h1>
-  <div id="chat"></div>
-  <input id="msg" placeholder="Type a message...">
-  <button onclick="send()">Send</button>
+  <h1>Client Approval Panel</h1>
+  <div class="section">
+    <h2>Not Approved Clients</h2>
+    <div id="not-approved" class="client-list"></div>
+  </div>
+  <div class="section">
+    <h2>Approved Clients</h2>
+    <div id="approved" class="client-list"></div>
+  </div>
 
   <script>
-    const chat = document.getElementById("chat");
-    const msg = document.getElementById("msg");
+    // Store clients by public_id
+    const clients = {};
 
-    // Replace this with the actual private_key you want to send
-    function generateRandomId() {
-      let arr = new Uint8Array(16); // 16 bytes = 32 hex chars
-      window.crypto.getRandomValues(arr);
-      return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    const private_key = generateRandomId();
-    const ws = new WebSocket("ws://localhost:8080/chat");
-
-    ws.onopen = function() {
-      // Send registration message after connection established
-      ws.send(JSON.stringify({
-        opcode: 5,
-        data: { private_key: private_key }
-      }));
+    // Called from C when a new client is added
+    window.AddClient = function(client) {
+      // client: {public_id, private_id, approved, public_name}
+      clients[client.public_id] = client;
+      renderClients();
     };
 
-    ws.onmessage = function(event) {
-      try {
-        const message = JSON.parse(event.data);
-        if (typeof message === "object" && "opcode" in message && "data" in message) {
-          const line = document.createElement("div");
-          line.textContent = `[opcode: ${message.opcode}] ${JSON.stringify(message.data)}`;
-          chat.appendChild(line);
-          chat.scrollTop = chat.scrollHeight;
+
+    // Show feedback to user
+    function showStatus(msg, isError) {
+      let status = document.getElementById('status-msg');
+      if (!status) {
+        status = document.createElement('div');
+        status.id = 'status-msg';
+        document.body.insertBefore(status, document.body.firstChild);
+      }
+      status.textContent = msg;
+      status.style.color = isError ? 'red' : 'green';
+      setTimeout(() => { status.textContent = ''; }, 2000);
+    }
+
+    // Render both lists
+    function renderClients() {
+      const notApprovedDiv = document.getElementById('not-approved');
+      const approvedDiv = document.getElementById('approved');
+      notApprovedDiv.innerHTML = '';
+      approvedDiv.innerHTML = '';
+
+      Object.values(clients).forEach(client => {
+        const div = document.createElement('div');
+        div.className = 'client ' + (client.approved ? 'approved' : 'not-approved');
+        div.textContent = `ID: ${client.public_id} | Name: ${client.public_name || ''}`;
+        if (!client.approved) {
+          const btn = document.createElement('button');
+          btn.textContent = 'Approve';
+          btn.disabled = false;
+          btn.onclick = function() {
+            btn.disabled = true;
+            btn.textContent = 'Approving...';
+            if (window.approve_client) {
+              window.approve_client({ public_id: client.public_id })
+                .then(success => {
+                  if (success === true || success === 'true') {
+                    client.approved = 1;
+                    showStatus('Client approved!', false);
+                    renderClients();
+                  } else {
+                    showStatus('Failed to approve client.', true);
+                    btn.disabled = false;
+                    btn.textContent = 'Approve';
+                  }
+                })
+                .catch(err => {
+                  showStatus('Error: ' + err, true);
+                  btn.disabled = false;
+                  btn.textContent = 'Approve';
+                });
+            } else {
+              showStatus('approve_client function not available.', true);
+              btn.disabled = false;
+              btn.textContent = 'Approve';
+            }
+          };
+          div.appendChild(btn);
+          notApprovedDiv.appendChild(div);
+        } else {
+          approvedDiv.appendChild(div);
         }
-      } catch (e) {
-        // Ignore non-JSON messages
-      }
-    };
-
-    function send() {
-      if (msg.value) {
-        ws.send(JSON.stringify({
-          opcode: 1, // Example opcode for chat message
-          data: { text: msg.value }
-        }));
-        msg.value = "";
-      }
+      });
     }
 
-    msg.addEventListener("keypress", function(e) {
-      if (e.key === "Enter") send();
-    });
+    // Example: Add a test client (remove in production)
+    // window.AddClient({public_id: 1, private_id: "abc", approved: 0, public_name: "Test Client"});
+
+    // For webview2: expose approve_client to JS
+    if (window.external && window.external.invoke) {
+      window.approve_client = function(arg) {
+        window.external.invoke(JSON.stringify({name: "approve_client", arg}));
+      };
+    }
   </script>
 </body>
 </html>

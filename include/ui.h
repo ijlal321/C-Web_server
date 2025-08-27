@@ -11,7 +11,8 @@ webview_t ui_webview_window_init();
 
 int ui_set_html(webview_t w);
 
-int ui_bind_all_functions(struct AppContext * ctx);
+// int ui_bind_all_functions(struct AppContext * ctx);
+
 
 
 #endif

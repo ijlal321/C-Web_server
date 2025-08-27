@@ -3,7 +3,7 @@
 
 struct mg_context * http_initialize_server();
 
-void http_init_handlers(struct mg_context * ctx);
+void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx);
 
 
 
