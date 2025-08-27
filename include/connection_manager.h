@@ -24,6 +24,15 @@ void cm_add_client_to_UI(struct Server * server, struct Client * client);
 
 void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_connection *conn);
 
+void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_notify_client_approved(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_disapprove_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_notify_client_disapproved(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+
 
 // add Client
 // find Client

@@ -17,9 +17,10 @@
 <body>
 	<h1>Client Approval Panel</h1>
 	<div id="status-msg"></div>
+
 	<div class="section">
-		<h2>Not Approved Clients</h2>
-		<div id="not-approved" class="client-list"></div>
+		<h2>Disapproved Clients</h2>
+		<div id="disapproved" class="client-list"></div>
 	</div>
 	<div class="section">
 		<h2>Approved Clients</h2>
@@ -38,32 +39,36 @@
 		}
 
 		function renderClients() {
-			const notApprovedDiv = document.getElementById('not-approved');
 			const approvedDiv = document.getElementById('approved');
-			notApprovedDiv.innerHTML = '';
+			const disapprovedDiv = document.getElementById('disapproved');
 			approvedDiv.innerHTML = '';
+			disapprovedDiv.innerHTML = '';
 
 			Object.values(clients).forEach(client => {
 				const div = document.createElement('div');
-				div.className = 'client ' + (client.approved ? 'approved' : 'not-approved');
+				div.className = 'client ' + (client.approved ? 'approved' : 'disapproved');
 				div.textContent = `ID: ${client.public_id} | Name: ${client.public_name || ''}`;
 				div.style.cursor = 'pointer';
-				if (!client.approved) {
+				if (client.approved) {
+					div.title = 'Click to disapprove';
+					div.onclick = function() {
+						if (ws && ws.readyState === WebSocket.OPEN) {
+							ws.send(JSON.stringify({ opcode: 6, data: { public_id: client.public_id } }));
+							client.approved = 0;
+							renderClients();
+						}
+					};
+					approvedDiv.appendChild(div);
+				} else {
 					div.title = 'Click to approve';
 					div.onclick = function() {
 						if (ws && ws.readyState === WebSocket.OPEN) {
 							ws.send(JSON.stringify({ opcode: 4, data: { public_id: client.public_id } }));
+							client.approved = 1;
+							renderClients();
 						}
 					};
-					notApprovedDiv.appendChild(div);
-				} else {
-					div.title = 'Click to select approved client';
-					div.onclick = function() {
-						if (ws && ws.readyState === WebSocket.OPEN) {
-							ws.send(JSON.stringify({ opcode: 5, data: { public_id: client.public_id } }));
-						}
-					};
-					approvedDiv.appendChild(div);
+					disapprovedDiv.appendChild(div);
 				}
 			});
 		}
@@ -95,11 +100,9 @@
 		}
 
 		function handleWSMessage(msg) {
-            alert(msg.data);
 			if (!msg || typeof msg.opcode !== 'number') return;
 			switch (msg.opcode) {
 				case 3:
-                    alert(msg.data);
 					// msg.data is an array of clients
 					if (Array.isArray(msg.data)) {
 						msg.data.forEach(c => {

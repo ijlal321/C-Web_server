@@ -89,22 +89,6 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     }
 
     enum WsOPCodes op = (enum WsOPCodes)opcode->valueint;
-    // check if opcode is register 
-    // Special Case: 
-    // 1. where we dont need to find client instance
-    // 2. special need for write lock.
-    // if (op == CLIENT_REGISTER){
-    //     int public_id = cm_add_client(connection_mgr, conn, ws_data);
-    //     if (public_id == 0){ // some error occured
-
-    //         return 0;  // close connection.
-    //     }
-    //     char buffer[500];
-    //     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
-    //     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
-    //     cJSON_Delete(root);
-    //     return 1;
-    // }
 
     switch (op) {
         case CLIENT_REGISTER:
@@ -119,9 +103,14 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             cm_register_server(connection_mgr, conn);
             break;
         case UI_APPROVE_CLIENT:
+            // TODO: alot of refactoring needed in this section. 2 times lock, finding, parsing public id...
+            cm_approve_client(connection_mgr, ws_data);
+            cm_notify_client_approved(connection_mgr, ws_data);
             printf("approve client called\n");
             break;
         case UI_DIS_APPROVE_CLIENT:
+            cm_disapprove_client(connection_mgr, ws_data);
+            cm_notify_client_disapproved(connection_mgr, ws_data);
             printf("UI_DIS_APPROVE_CLIENT client called\n");
             break;
         case ADD_FILES:

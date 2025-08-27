@@ -11,13 +11,22 @@
 </head>
 <body>
   <h1>Chat Room</h1>
+  <div id="state"></div>
   <div id="chat"></div>
   <input id="msg" placeholder="Type a message...">
   <button onclick="send()">Send</button>
 
   <script>
+
     const chat = document.getElementById("chat");
     const msg = document.getElementById("msg");
+    const stateDiv = document.getElementById("state");
+    let approved = false;
+
+    function renderState() {
+      stateDiv.textContent = "Approved: " + (approved ? "Yes" : "No");
+      stateDiv.style.color = approved ? "green" : "red";
+    }
 
     // Replace this with the actual private_key you want to send
     function generateRandomId() {
@@ -41,6 +50,13 @@
       try {
         const message = JSON.parse(event.data);
         if (typeof message === "object" && "opcode" in message && "data" in message) {
+          if (message.opcode === 5) {
+            approved = true;
+            renderState();
+          } else if (message.opcode === 7) {
+            approved = false;
+            renderState();
+          }
           const line = document.createElement("div");
           line.textContent = `[opcode: ${message.opcode}] ${JSON.stringify(message.data)}`;
           chat.appendChild(line);
@@ -64,6 +80,12 @@
     msg.addEventListener("keypress", function(e) {
       if (e.key === "Enter") send();
     });
+
+    // Start WebSocket and state display on page load
+    window.onload = function() {
+      connectWS();
+      renderState();
+    };
   </script>
 </body>
 </html>

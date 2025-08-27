@@ -97,3 +97,87 @@ void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_con
     return;
 }
 
+void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
+    int public_id = public_id_obj->valueint;
+    printf("Public Id found is: %d \n", public_id);
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    
+    struct Client * client = NULL;
+    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+    if (client == NULL){
+        printf("Client not exist for public id\n");
+        goto end;
+    }
+    pthread_rwlock_wrlock(&client->rwlock);
+    if (client->approved == 1){
+        printf("Client ALready approved\n");
+        goto end;
+    }
+    client->approved = 1;
+end:
+    pthread_rwlock_unlock(&client->rwlock);
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return;
+}
+
+
+void cm_notify_client_approved(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
+    int public_id = public_id_obj->valueint;
+    printf("Public Id found is: %d \n", public_id);
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    
+    struct Client * client = NULL;
+    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+    
+    char buffer[500];
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", SERVER_APPROVE_CLIENT);
+    mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));    
+
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return;
+}
+
+void cm_disapprove_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
+    int public_id = public_id_obj->valueint;
+    printf("Public Id found is: %d \n", public_id);
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    
+    struct Client * client = NULL;
+    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+    if (client == NULL){
+        printf("Client not exist for public id\n");
+        goto end;
+    }
+    pthread_rwlock_wrlock(&client->rwlock);
+    if (client->approved == 0){
+        printf("Client ALready Disapproved\n");
+        goto end;
+    }
+    client->approved = 0;
+end:
+    pthread_rwlock_unlock(&client->rwlock);
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return;
+}
+
+
+void cm_notify_client_disapproved(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
+    int public_id = public_id_obj->valueint;
+    printf("Public Id found is: %d \n", public_id);
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    
+    struct Client * client = NULL;
+    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+    
+    char buffer[500];
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", SERVER_DIS_APPROVE_CLIENT);
+    mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));    
+
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return;
+}
+
