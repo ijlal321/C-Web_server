@@ -2,7 +2,6 @@
 #include "config.h"
 #include <memory.h>
 #include "civetweb.h"
-#include "app_context.h"
 
 /**
  * @brief Initializes and starts the CivetWeb server.

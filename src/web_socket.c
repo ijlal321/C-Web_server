@@ -63,7 +63,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
     printf("Some client sent data: %.*s\n", (int)len, data);
-    printf("Connection Opcode is: %d\n", con_opcode);
+    // printf("Connection Opcode is: %d\n", con_opcode);
     
     // Ignore anything that's not a text frame
     // last 4 bits are used to represent opcode.
@@ -93,23 +93,37 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     // Special Case: 
     // 1. where we dont need to find client instance
     // 2. special need for write lock.
-    if (op == REGISTER){
-        int public_id = cm_add_client(connection_mgr, conn, ws_data);
-        if (public_id == 0){ // some error occured
+    // if (op == CLIENT_REGISTER){
+    //     int public_id = cm_add_client(connection_mgr, conn, ws_data);
+    //     if (public_id == 0){ // some error occured
 
-            return 0;  // close connection.
-        }
-        char buffer[500];
-        sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
-        mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
-        cJSON_Delete(root);
-        return 1;
-    }
-
-    // SCENERIOS: We need READ LOCK on CONNECTION MANAGER
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    //         return 0;  // close connection.
+    //     }
+    //     char buffer[500];
+    //     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
+    //     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
+    //     cJSON_Delete(root);
+    //     return 1;
+    // }
 
     switch (op) {
+        case CLIENT_REGISTER:
+            struct Client * client = cm_add_client(connection_mgr, conn, ws_data);
+            if (client == NULL){ // some error occured
+                return 0;  // close connection.
+            }
+            cm_send_public_id_to_client(conn, client->public_id);
+            cm_add_client_to_UI(&connection_mgr->server, client);
+            break;
+        case UI_REGISTER:
+            cm_register_server(connection_mgr, conn);
+            break;
+        case UI_APPROVE_CLIENT:
+            printf("approve client called\n");
+            break;
+        case UI_DIS_APPROVE_CLIENT:
+            printf("UI_DIS_APPROVE_CLIENT client called\n");
+            break;
         case ADD_FILES:
             // Handle Adding new files in client files
             printf("Handling ADD_FILES\n");
@@ -135,14 +149,8 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             break;
     }
 
-    pthread_rwlock_unlock(&connection_mgr->rwlock);
-
     cJSON_Delete(root);
     return 1;
-
-
-    printf("Message from client: %.*s\n", (int)len, data);
-    return 1;  // keep connection open. 0 means close it.
     
 }
 
