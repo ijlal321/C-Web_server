@@ -16,7 +16,12 @@
 </head>
 <body>
 	<h1>Client Approval Panel</h1>
-	<div id="status-msg"></div>
+		<div id="status-msg"></div>
+
+		<div id="ui-file-drop" style="border:2px dashed #888; padding:20px; margin:10px 0; text-align:center; background:#f8f8f8; cursor:pointer;">
+			<span>Drop files here or <label style="color:blue; text-decoration:underline; cursor:pointer;"><input type="file" id="ui-file-input" multiple style="display:none;">select files</label></span>
+		</div>
+		<div id="ui-file-list"></div>
 
 	<div class="section">
 		<h2>Disapproved Clients</h2>
@@ -31,6 +36,96 @@
 		// Store clients by public_id
 		const clients = {};
 		const clientFiles = {}; // public_id -> array of files
+
+		// UI file drop for admin
+		let uiFileIdCounter = 1;
+		const uiFilesArr = [];
+		const uiFileListDiv = document.getElementById("ui-file-list");
+		const uiFileDrop = document.getElementById("ui-file-drop");
+		const uiFileInput = document.getElementById("ui-file-input");
+
+		function renderUiFiles() {
+			uiFileListDiv.innerHTML = '';
+			if (uiFilesArr.length === 0) return;
+			const ul = document.createElement('ul');
+				uiFilesArr.forEach(f => {
+					const li = document.createElement('li');
+					li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+					// Add remove button
+					const btn = document.createElement('button');
+					btn.textContent = 'Remove';
+					btn.onclick = function(e) {
+						e.stopPropagation();
+						// Remove file from array
+						const idx = uiFilesArr.findIndex(file => file.id === f.id);
+						if (idx !== -1) {
+							uiFilesArr.splice(idx, 1);
+							renderUiFiles();
+							// Send opcode 11 to remove file
+							if (ws && ws.readyState === WebSocket.OPEN) {
+								ws.send(JSON.stringify({ opcode: 11, data: { file_id: f.id, public_id: 0 } }));
+							}
+						}
+					};
+					li.appendChild(btn);
+					ul.appendChild(li);
+				});
+			uiFileListDiv.appendChild(ul);
+		}
+
+		function handleUiFiles(fileList) {
+			let added = [];
+			Array.from(fileList).forEach(file => {
+				const fileObj = {
+					name: file.name,
+					id: uiFileIdCounter++,
+					size: file.size,
+					type: file.type
+				};
+				uiFilesArr.push(fileObj);
+				added.push(fileObj);
+			});
+			renderUiFiles();
+			// Send opcode 10 with data: {file_count, public_id:0, files: [...]}
+			if (ws && ws.readyState === WebSocket.OPEN && added.length > 0) {
+				ws.send(JSON.stringify({
+					opcode: 10,
+					data: {
+						file_count: uiFilesArr.length,
+						public_id: 0,
+						files: uiFilesArr
+					}
+				}));
+			}
+		}
+
+		uiFileDrop.addEventListener('dragover', function(e) {
+			e.preventDefault();
+			uiFileDrop.style.background = '#e0e0e0';
+		});
+		uiFileDrop.addEventListener('dragleave', function(e) {
+			e.preventDefault();
+			uiFileDrop.style.background = '#f8f8f8';
+		});
+		uiFileDrop.addEventListener('drop', function(e) {
+			e.preventDefault();
+			uiFileDrop.style.background = '#f8f8f8';
+			if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+				handleUiFiles(e.dataTransfer.files);
+			}
+		});
+		uiFileInput.addEventListener('change', function(e) {
+			if (uiFileInput.files && uiFileInput.files.length > 0) {
+				handleUiFiles(uiFileInput.files);
+				uiFileInput.value = '';
+			}
+		});
+		uiFileDrop.querySelector('input[type="file"]').addEventListener('click', function(e) {
+			e.stopPropagation();
+		});
+		uiFileDrop.addEventListener('click', function() {
+			uiFileInput.click();
+		});
 
 		function showStatus(msg, isError) {
 			const status = document.getElementById('status-msg');

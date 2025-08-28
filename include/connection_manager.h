@@ -40,6 +40,14 @@ void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws
 
 void cm_remove_files_from_UI(struct Server * server, const cJSON * ws_data);
 
+void cm_server_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_send_files_to_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_remove_server_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
+void cm_remove_files_from_clients(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
 // add Client
 // find Client
 // approve Client

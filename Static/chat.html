@@ -30,30 +30,53 @@
     const fileDrop = document.getElementById("file-drop");
     const fileInput = document.getElementById("file-input");
 
+    // Store files received from websocket by public_id
+    const wsFilesByPublicId = {};
+
     function renderFiles() {
       fileListDiv.innerHTML = '';
-      if (filesArr.length === 0) return;
-      const ul = document.createElement('ul');
-      filesArr.forEach(f => {
-        const li = document.createElement('li');
-        li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
-        li.style.cursor = 'pointer';
-        li.title = 'Click to remove this file';
-        li.onclick = function() {
-          // Remove file from array
-          const idx = filesArr.findIndex(file => file.id === f.id);
-          if (idx !== -1) {
-            filesArr.splice(idx, 1);
-            renderFiles();
-            // Send opcode 9 to remove file
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ opcode: 9, data: { file_id: f.id, public_id: public_id } }));
+      // Show own files (removable)
+      if (filesArr.length > 0) {
+        const ul = document.createElement('ul');
+        filesArr.forEach(f => {
+          const li = document.createElement('li');
+          li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+          li.style.cursor = 'pointer';
+          li.title = 'Click to remove this file';
+          li.onclick = function() {
+            // Remove file from array
+            const idx = filesArr.findIndex(file => file.id === f.id);
+            if (idx !== -1) {
+              filesArr.splice(idx, 1);
+              renderFiles();
+              // Send opcode 9 to remove file
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ opcode: 9, data: { file_id: f.id, public_id: public_id } }));
+              }
             }
-          }
-        };
-        ul.appendChild(li);
+          };
+          ul.appendChild(li);
+        });
+        const label = document.createElement('div');
+        label.textContent = 'Your Files:';
+        fileListDiv.appendChild(label);
+        fileListDiv.appendChild(ul);
+      }
+      // Show files received from websocket (not removable)
+      Object.entries(wsFilesByPublicId).forEach(([pid, files]) => {
+        if (Array.isArray(files) && files.length > 0) {
+          const label = document.createElement('div');
+          label.textContent = `Files from public_id ${pid}:`;
+          const ul = document.createElement('ul');
+          files.forEach(f => {
+            const li = document.createElement('li');
+            li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+            ul.appendChild(li);
+          });
+          fileListDiv.appendChild(label);
+          fileListDiv.appendChild(ul);
+        }
       });
-      fileListDiv.appendChild(ul);
     }
 
     let public_id = null;
@@ -155,6 +178,34 @@
           } else if (message.opcode === 7) {
             approved = false;
             renderState();
+          } else if (message.opcode === 10) {
+            // Add files from websocket for a public_id
+            if (message.data && typeof message.data.public_id !== 'undefined' && Array.isArray(message.data.files)) {
+              wsFilesByPublicId[message.data.public_id] = message.data.files;
+              renderFiles();
+            }
+          } else if (message.opcode === 11) {
+            // Remove file from wsFilesByPublicId for the given public_id
+            if (message.data && typeof message.data.public_id !== 'undefined' && typeof message.data.file_id !== 'undefined') {
+              const arr = wsFilesByPublicId[message.data.public_id];
+              if (Array.isArray(arr)) {
+                const idx = arr.findIndex(f => f.id === message.data.file_id);
+                if (idx !== -1) {
+                  arr.splice(idx, 1);
+                  renderFiles();
+                }
+              }
+            }
+            // Also remove from own files if public_id matches
+            if (message.data && typeof message.data.public_id !== 'undefined' && typeof message.data.file_id !== 'undefined') {
+              if (public_id !== null && message.data.public_id === public_id) {
+                const idx = filesArr.findIndex(f => f.id === message.data.file_id);
+                if (idx !== -1) {
+                  filesArr.splice(idx, 1);
+                  renderFiles();
+                }
+              }
+            }
           }
           const line = document.createElement("div");
           line.textContent = `[opcode: ${message.opcode}] ${JSON.stringify(message.data)}`;

@@ -113,16 +113,28 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             cm_notify_client_disapproved(connection_mgr, ws_data);
             printf("UI_DIS_APPROVE_CLIENT client called\n");
             break;
-        case ADD_FILES:
+        case CLIENT_ADD_FILES:
             // Handle Adding new files in client files
             cm_add_files(connection_mgr, ws_data);
             cm_send_files_to_UI(&connection_mgr->server, root);
             printf("Handling ADD_FILES\n");
             break;
-        case REMOVE_FILE:
+        case CLIENT_REMOVE_FILE:
             // Handle removing files from client files
             cm_remove_files(connection_mgr, ws_data);
             cm_remove_files_from_UI(&connection_mgr->server, root);
+            printf("Handling REMOVE_FILE\n");
+            break;
+        case UI_ADD_FILES:
+            // Handle Adding new files in client files
+            cm_server_add_files(connection_mgr, ws_data);
+            cm_send_files_to_client(connection_mgr, root);
+            printf("Handling ADD_FILES\n");
+            break;
+        case UI_REMOVE_FILE:
+            // Handle removing files from client files
+            cm_remove_server_files(connection_mgr, ws_data);
+            cm_remove_files_from_clients(connection_mgr, root);
             printf("Handling REMOVE_FILE\n");
             break;
         case ASK_FILES:

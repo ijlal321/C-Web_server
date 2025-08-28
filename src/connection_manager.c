@@ -262,4 +262,92 @@ void cm_remove_files_from_UI(struct Server * server, const cJSON * ws_data){
 }
 
 
+void cm_server_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+
+    int file_count = cJSON_GetObjectItem(ws_data, "file_count")->valueint;
+    printf("file_count = %d\n", file_count);
+
+    struct Server * server = &connection_mgr->server;
+
+    const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
+
+    for (int i = 0; i < file_count; i++) {
+        struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
+        cJSON *file = cJSON_GetArrayItem(files_obj, i);
+        
+        const char *name = cJSON_GetObjectItem(file, "name")->valuestring;
+        int size = cJSON_GetObjectItem(file, "size")->valueint;
+        const char *type = cJSON_GetObjectItem(file, "type")->valuestring;
+        int id = cJSON_GetObjectItem(file, "id")->valueint;
+        
+        printf("File %d:\n", i + 1);
+        strncpy(new_file->name, name, sizeof(new_file->name));
+        printf("  Name: %s\n", name);
+        new_file->size = size;
+        printf("  Size: %d\n", size);
+        strncpy(new_file->type, type, sizeof(new_file->type));
+        printf("  Type: %s\n", type);
+        new_file->id = id;
+        printf("  ID:   %d\n", id);
+
+        new_file->is_transfering = 0;
+        pthread_rwlock_init(&new_file->rw_lock, NULL);
+        HASH_ADD_INT(server->files, id, new_file);
+    }
+
+    return;
+}
+
+void cm_send_files_to_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    {
+        pthread_rwlock_rdlock(&connection_mgr->rwlock);
+        char * string_to_send = cJSON_PrintUnformatted(ws_data);
+        printf("data being sent to ui is: %s \n", string_to_send); 
+        struct Client *cur, *temp;  
+        HASH_ITER(hh, connection_mgr->clients, cur, temp ){
+            mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send));
+        }
+        free(string_to_send);   
+        pthread_rwlock_unlock(&connection_mgr->rwlock);
+        return;
+    }
+ 
+}
+
+
+
+
+void cm_remove_server_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    pthread_rwlock_rdlock(&connection_mgr->server.rwlock);
+    int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint;
+    int file_id = cJSON_GetObjectItem(ws_data, "file_id")->valueint;
+    printf("public_id = %d, file_count = %d\n", public_id, file_id);
+
+
+    struct File * cur_file = NULL;
+    HASH_FIND_INT(connection_mgr->server.files, &file_id, cur_file);
+    HASH_DEL(connection_mgr->server.files, cur_file);
+    free(cur_file);
+    printf("file removed\n");
+
+    pthread_rwlock_unlock(&connection_mgr->server.rwlock);
+    return;
+}
+
+
+void cm_remove_files_from_clients(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    char * string_to_send = cJSON_PrintUnformatted(ws_data);
+    printf("data being sent to ui is: %s \n", string_to_send);
+    struct Client *cur, *temp;   
+    HASH_ITER(hh, connection_mgr->clients, cur, temp ){
+        mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send));
+        // free(cur); 
+    }
+    free(string_to_send);   
+    return;
+}
+
+
+
+
 

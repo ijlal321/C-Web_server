@@ -1,5 +1,6 @@
 #ifndef WEB_SOCKET_H
 #define WEB_SOCKET_H
+
 #include <pthread.h>
 
 #include "config.h"
@@ -17,13 +18,15 @@ enum WsOPCodes{
     SERVER_APPROVE_CLIENT,
     UI_DIS_APPROVE_CLIENT,
     SERVER_DIS_APPROVE_CLIENT,
-    ADD_FILES,  // HEY ADD THIS [LIST] OF FILES I HAVE TO YOUR DB
-    REMOVE_FILE,  // REMOVE THIS SINGLE FILE
-    ASK_FILES,   // GIMME ALL FILES YOU GOT 
+    CLIENT_ADD_FILES,  // HEY ADD THIS [LIST] OF FILES I HAVE TO YOUR DB
+    CLIENT_REMOVE_FILE,  // REMOVE THIS SINGLE FILE
+    UI_ADD_FILES,            // 10
+    UI_REMOVE_FILE,
     UPLOAD_FILE, // ask client to upload this file.
     UPDATE_NAME, // ask other party to UPDATE SENDER NAME [HELPFUL IN PATRY MODE]
     REGISTER, // send a uiique uuid, and ask server to register it
     RECONNECT, // send previous UUID and try to reconnect.
+    ASK_FILES,   // GIMME ALL FILES YOU GOT 
 };
 
 void ws_start( struct mg_context * cw_ctx, struct AppContext * app_ctx);
