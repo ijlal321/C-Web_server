@@ -137,6 +137,10 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             cm_remove_files_from_clients(connection_mgr, root);
             printf("Handling REMOVE_FILE\n");
             break;
+        case REQUEST_CHUNK:
+            chunk_request(app_ctx , ws_data, conn);
+            printf("Handling REQUEST CHUNK\n");
+            break;
         case ASK_FILES:
             // Client Asking all Server Files
             printf("Handling ASK_FILES\n");

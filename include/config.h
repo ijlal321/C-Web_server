@@ -26,5 +26,8 @@
 #define PRIVATE_ID_SIZE 33  // 16 byte hex = 32 byte char + '\0;
 #define NAME_STRING_SIZE 127
 
+// ========== DATA TRANSFER =============
+
+#define CHUNK_SIZE (1024 * 1024)  // 1MB    
 
 #endif

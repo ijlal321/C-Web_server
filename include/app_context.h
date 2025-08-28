@@ -4,11 +4,13 @@
 
 #include "web_socket.h"
 #include "connection_manager.h"
+#include "chunk_manager.h"
 #include "webview/webview.h"
 
 struct AppContext {
     webview_t w;
     struct ConnectionManager connection_mgr;
+    struct ChunkManager chunk_mgr;
 };
 
 #endif

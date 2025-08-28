@@ -6,7 +6,8 @@
 
 int main(void) {
     struct AppContext app_ctx = {0};
-    
+    chunk_manager_init(&app_ctx.chunk_mgr);
+
     // CONNECTIONS: start listening to connections on antoher thread
     pthread_t th;
     pthread_create(&th, NULL, start_connections, (void * )&app_ctx); 
