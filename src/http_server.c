@@ -32,6 +32,7 @@ struct mg_context * http_initialize_server() {
     return ctx;
 }
 
+
 // Handler for '/'
 // Serves the contents of "static.html" as the response
 static int RootHandler(struct mg_connection *conn, void *cbdata) {
@@ -55,8 +56,54 @@ static int RootHandler(struct mg_connection *conn, void *cbdata) {
     return 200;
 }
 
-void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx){
-    mg_set_request_handler(cw_ctx, "/*", RootHandler, 0); // route to this case in all cases
+// Handler for '/upload_chunk' POST
+static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
+    printf("found req\n");
+    // Only accept POST
+    if (strcmp(mg_get_request_info(conn)->request_method, "POST") != 0) {
+        mg_send_http_error(conn, 405, "%s", "Method Not Allowed");
+        return 405;
+    }
 
-    
+    char public_id[32] = {0}, file_id[32] = {0}, chunk_id[32] = {0};
+    const char *cl;
+    long long content_len = 0;
+    cl = mg_get_header(conn, "Content-Length");
+    if (cl) content_len = atoll(cl);
+
+    // Parse multipart form data
+    // For simplicity, use CivetWeb's mg_parse_multipart
+    char buf[1024];
+    int n;
+    FILE *out = NULL;
+    int got_chunk = 0;
+    while ((n = mg_read(conn, buf, sizeof(buf))) > 0) {
+        // In a real implementation, parse multipart boundaries and fields.
+        // Here, just write to a temp file for demonstration.
+        if (!out) {
+            out = fopen("received_chunk.tmp", "wb");
+            if (!out) {
+                mg_send_http_error(conn, 500, "%s", "Failed to open file");
+                return 500;
+            }
+        }
+        fwrite(buf, 1, n, out);
+        got_chunk = 1;
+    }
+    if (out) fclose(out);
+
+    if (got_chunk) {
+        mg_send_http_ok(conn, "text/plain", 2);
+        mg_write(conn, "OK", 2);
+        printf("Chunk received and saved as received_chunk.tmp\n");
+        return 200;
+    } else {
+        mg_send_http_error(conn, 400, "%s", "No chunk data received");
+        return 400;
+    }
+}
+
+void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx){
+    mg_set_request_handler(cw_ctx, "/upload_chunk", UploadChunkHandler, 0);
+    mg_set_request_handler(cw_ctx, "/*", RootHandler, 0); // route to this case in all cases
 }

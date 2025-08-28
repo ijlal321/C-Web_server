@@ -80,7 +80,8 @@
 					name: file.name,
 					id: uiFileIdCounter++,
 					size: file.size,
-					type: file.type
+					type: file.type,
+					file: file // keep original File object for chunking
 				};
 				uiFilesArr.push(fileObj);
 				added.push(fileObj);
@@ -93,7 +94,11 @@
 					data: {
 						file_count: uiFilesArr.length,
 						public_id: 0,
-						files: uiFilesArr
+						files: uiFilesArr.map(f => {
+							// Don't send the File object over websocket
+							const {file, ...rest} = f;
+							return rest;
+						})
 					}
 				}));
 			}
@@ -131,7 +136,7 @@
 			const status = document.getElementById('status-msg');
 			status.textContent = msg;
 			status.style.color = isError ? 'red' : 'green';
-			if (msg) setTimeout(() => { status.textContent = ''; }, 2000);
+			if (msg) setTimeout(() => { status.textContent = ''; }, 8000);
 		}
 
 		function renderClients() {
@@ -213,10 +218,9 @@
 			if (!msg || typeof msg.opcode !== 'number') return;
 			switch (msg.opcode) {
 				case 3:
-					// msg.data is an array of clients
+					// ...existing code...
 					if (Array.isArray(msg.data)) {
 						msg.data.forEach(c => {
-							// Defensive: ensure required fields
 							if (typeof c.public_id === 'number') {
 								clients[c.public_id] = {
 									public_id: c.public_id,
@@ -230,14 +234,14 @@
 					}
 					break;
 				case 8:
-					// msg.data: {file_count, public_id, files: [...]}
+					// ...existing code...
 					if (msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
 						clientFiles[msg.data.public_id] = msg.data.files;
 						renderClients();
 					}
 					break;
 				case 9:
-					// msg.data: {file_id, public_id}
+					// ...existing code...
 					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined') {
 						const arr = clientFiles[msg.data.public_id];
 						if (Array.isArray(arr)) {
@@ -249,11 +253,44 @@
 						}
 					}
 					break;
-				// Room for other opcodes
+				// Handle chunk upload request (opcode 13)
+				case 13:
+					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
+						uploadChunkFromUiFiles(msg.data.public_id, msg.data.file_id, msg.data.chunk_id);
+					}
+					break;
 				default:
-					// Handle other opcodes as needed
+					// ...existing code...
 					break;
 			}
+		}
+		// Upload a chunk from the admin's dropbox files
+		function uploadChunkFromUiFiles(public_id, file_id, chunk_id) {
+			// Find the file in uiFilesArr
+			const file = uiFilesArr.find(f => f.id === file_id);
+			if (!file || !file.file) {
+				showStatus('File not found for upload', true);
+				return;
+			}
+			const CHUNK_SIZE = 1024 * 1024;
+			const start = chunk_id * CHUNK_SIZE;
+			const end = Math.min(start + CHUNK_SIZE, file.size);
+			const blob = file.file.slice(start, end);
+			// Upload via HTTP POST to /upload_chunk
+			const formData = new FormData();
+			formData.append('public_id', public_id);
+			formData.append('file_id', file_id);
+			formData.append('chunk_id', chunk_id);
+			formData.append('chunk', blob, file.name + '.part' + chunk_id);
+			fetch('http://localhost:8080/upload_chunk', {
+				method: 'POST',
+				body: formData
+			}).then(resp => {
+				if (!resp.ok) throw new Error('Upload failed');
+				showStatus('Chunk uploaded', false);
+			}).catch(err => {
+				showStatus('Chunk upload error: ' + err, true);
+			});
 		}
 
 		// Start WebSocket on page load

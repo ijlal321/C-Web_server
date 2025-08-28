@@ -1,4 +1,3 @@
-#include "chunk_manager.h"
 #include "app_context.h"
 
 
@@ -10,7 +9,7 @@ void chunk_manager_init(struct ChunkManager * chunk_mgr){
 void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
-
+    // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
     int sender_public_id = cJSON_GetObjectItem(ws_data, "sender_public_id")->valueint;
     int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint; // public id of target
     int file_id = cJSON_GetObjectItem(ws_data, "file_id")->valueint;
@@ -32,6 +31,26 @@ void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct m
         add_client_to_chunk(new_chunk, sender_public_id);
         HASH_ADD(hh, chunk_mgr->chunks, chunk_key, sizeof(struct ChunkKey), new_chunk);
         // start fetching data ?
+        struct mg_connection * target_socket = NULL;
+        if (public_id == 0){ // menaing server;
+            target_socket = connection_mgr->server.conn;
+            printf("Target is Server\n");
+        }else{
+            struct Client * target_client = NULL;
+            HASH_FIND_INT(connection_mgr->clients, &public_id, target_client);
+            if (target_client != NULL){
+                printf("Found target id:%d\n", public_id);
+                target_socket = target_client->conn;
+            }
+        }
+        if (target_socket == NULL){
+            printf("No Target Socket ?\n");
+        }
+        char buffer[500];
+        sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_UPLOAD_CHUNK, public_id, file_id, chunk_id);
+        int write_err = mg_websocket_write(target_socket, MG_WEBSOCKET_OPCODE_TEXT,  buffer, strlen(buffer));
+        printf("Sedning error is: %d\n", write_err);
+        printf("send req to get data\n %s \n", buffer);
         goto end;
     }
 
@@ -42,9 +61,9 @@ void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct m
     }else{
         // if chunk fully ready
         // send msg ready
-        const buffer[127];
+        char buffer[127];
         sprintf(buffer, "{\"opcode\":%d, \"data\": {\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
-        mg_write(conn, buffer, sizeof(buffer));
+        mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
     }
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
 end: 
@@ -65,5 +84,5 @@ struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id){
     new_chunk->chunk_key.chunk_id = chunk_id;
     new_chunk->is_downloaded = 0;
     pthread_rwlock_init(&new_chunk->rw_lock, NULL);
-    return &new_chunk;
+    return new_chunk;
 }

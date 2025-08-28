@@ -187,10 +187,9 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
     int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint;
     int file_count = cJSON_GetObjectItem(ws_data, "file_count")->valueint;
     printf("public_id = %d, file_count = %d\n", public_id, file_count);
-
     struct Client * cur_client = NULL;
     HASH_FIND_INT(connection_mgr->clients, &public_id, cur_client);
-
+    
     const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
 
     for (int i = 0; i < file_count; i++) {

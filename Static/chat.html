@@ -62,7 +62,7 @@
         fileListDiv.appendChild(label);
         fileListDiv.appendChild(ul);
       }
-      // Show files received from websocket (not removable)
+      // Show files received from websocket (with download button)
       Object.entries(wsFilesByPublicId).forEach(([pid, files]) => {
         if (Array.isArray(files) && files.length > 0) {
           const label = document.createElement('div');
@@ -71,12 +71,104 @@
           files.forEach(f => {
             const li = document.createElement('li');
             li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+            // Add download button
+            const btn = document.createElement('button');
+            btn.textContent = 'Download';
+            btn.onclick = function() {
+              startFileDownload({
+                sender_public_id: pid,
+                file_id: f.id,
+                file_name: f.name,
+                file_size: f.size
+              });
+            };
+            li.appendChild(btn);
             ul.appendChild(li);
           });
           fileListDiv.appendChild(label);
           fileListDiv.appendChild(ul);
         }
       });
+    // Download logic
+    const CHUNK_SIZE = 1024 * 1024; // 1MB
+    const MAX_PARALLEL_CHUNKS = 4;
+    // Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, senderPublicId}
+    const downloadState = {};
+
+    function startFileDownload({sender_public_id, file_id, file_name, file_size}) {
+      const fileKey = sender_public_id + ':' + file_id;
+      if (downloadState[fileKey]) return; // Already downloading
+      const totalChunks = Math.ceil(file_size / CHUNK_SIZE);
+      downloadState[fileKey] = {
+        chunks: Array(totalChunks).fill(null),
+        received: Array(totalChunks).fill(false),
+        totalChunks,
+        fileName: file_name,
+        fileSize: file_size,
+        senderPublicId: sender_public_id,
+        fileId: file_id,
+        nextChunk: 0,
+        completed: 0
+      };
+      // Request first 4 chunks
+      for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+        requestChunk(fileKey, i);
+      }
+    }
+
+    function requestChunk(fileKey, chunkId) {
+      const state = downloadState[fileKey];
+      if (!state) return;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          opcode: 12,
+          data: {
+            // sender_public_id: state.senderPublicId,
+            // public_id: public_id,
+            sender_public_id: public_id, // sender public id means its own 
+            public_id: state.senderPublicId, // here public id means the owner public id
+            file_id: state.fileId,
+            chunk_id: chunkId
+          }
+        }));
+      }
+    }
+
+    // Handle chunk ready notification (opcode 14)
+    function handleChunkReady(data) {
+      // data: {public_id, file_id, chunk_id}
+      const fileKey = data.public_id + ':' + data.file_id;
+      const state = downloadState[fileKey];
+      if (!state) return;
+      // Download chunk via HTTP
+      const url = `/download_chunk?public_id=${encodeURIComponent(data.public_id)}&file_id=${encodeURIComponent(data.file_id)}&chunk_id=${encodeURIComponent(data.chunk_id)}`;
+      fetch(url)
+        .then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+        .then(buf => {
+          state.chunks[data.chunk_id] = buf;
+          state.received[data.chunk_id] = true;
+          state.completed++;
+          // Request next chunk if any
+          let next = state.nextChunk;
+          while (next < state.totalChunks && state.received[next]) next++;
+          if (next < state.totalChunks) {
+            state.nextChunk = next + 1;
+            requestChunk(fileKey, next);
+          }
+          // If all chunks received, join and download
+          if (state.completed === state.totalChunks) {
+            const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = state.fileName;
+            a.click();
+            delete downloadState[fileKey];
+          }
+        })
+        .catch(err => {
+          alert('Chunk download failed: ' + err);
+        });
+    }
     }
 
     let public_id = null;
@@ -184,6 +276,9 @@
               wsFilesByPublicId[message.data.public_id] = message.data.files;
               renderFiles();
             }
+          } else if (message.opcode === 14) {
+            // Chunk ready, trigger HTTP download and next request
+            handleChunkReady(message.data);
           } else if (message.opcode === 11) {
             // Remove file from wsFilesByPublicId for the given public_id
             if (message.data && typeof message.data.public_id !== 'undefined' && typeof message.data.file_id !== 'undefined') {

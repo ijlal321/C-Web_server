@@ -44,17 +44,19 @@ void chunk_manager_init(struct ChunkManager * chunk_mgr);
 // if chunk available in memory, then use it. else create if space available
 void chunk_client_register(); 
 
-// when chunk is ready, broadcast to all clients via websocket.
-void chunk_ready();
+// // when chunk is ready, broadcast to all clients via websocket.
+// void chunk_ready();
 
-// Store a fully downloaded chunk into memory and update its state.
-void chunk_store_downloaded();
+// // Store a fully downloaded chunk into memory and update its state.
+// void chunk_store_downloaded();
 
-// send chunk to one of clients who resgistered with it.
-void chunk_upload();
+// // send chunk to one of clients who resgistered with it.
+// void chunk_upload();
 
 // client requesting a chunk. if available, send ready message. else create and download it.
 // ofc if space available in pool.
 void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn);
+void add_client_to_chunk(struct FileChunk * new_chunk, int sender_public_id);
+struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id);
 
 #endif

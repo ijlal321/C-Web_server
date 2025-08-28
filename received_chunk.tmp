@@ -1,0 +1,31 @@
+------WebKitFormBoundaryAa25CrVp6gA2BatD
+Content-Disposition: form-data; name="public_id"
+
+0
+------WebKitFormBoundaryAa25CrVp6gA2BatD
+Content-Disposition: form-data; name="file_id"
+
+1
+------WebKitFormBoundaryAa25CrVp6gA2BatD
+Content-Disposition: form-data; name="chunk_id"
+
+0
+------WebKitFormBoundaryAa25CrVp6gA2BatD
+Content-Disposition: form-data; name="chunk"; filename=".bash_history.part0"
+Content-Type: application/octet-stream
+
+git init
+git add .
+git commit -m "repo init"
+gh repo create
+repo create
+git remote add origin https://github.com/ijlal321/Rust-Leetcode
+git init
+git remote add origin https://github.com/ijlal321/Rust-Leetcode
+git pull
+git branch -M main
+git push -u origin main
+git pull
+git clone https://github.com/ijlal321/C-Leetcode
+
+------WebKitFormBoundaryAa25CrVp6gA2BatD--
