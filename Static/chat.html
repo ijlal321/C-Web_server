@@ -89,9 +89,11 @@
           fileListDiv.appendChild(ul);
         }
       });
+    }
+
     // Download logic
     const CHUNK_SIZE = 1024 * 1024; // 1MB
-    const MAX_PARALLEL_CHUNKS = 4;
+    const MAX_PARALLEL_CHUNKS = 200;
     // Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, senderPublicId}
     const downloadState = {};
 
@@ -134,7 +136,7 @@
       }
     }
 
-    // Handle chunk ready notification (opcode 14)
+    // handleChunkReady is now top-level
     function handleChunkReady(data) {
       // data: {public_id, file_id, chunk_id}
       const fileKey = data.public_id + ':' + data.file_id;
@@ -168,7 +170,6 @@
         .catch(err => {
           alert('Chunk download failed: ' + err);
         });
-    }
     }
 
     let public_id = null;
@@ -276,7 +277,7 @@
               wsFilesByPublicId[message.data.public_id] = message.data.files;
               renderFiles();
             }
-          } else if (message.opcode === 14) {
+          } else if (message.opcode == 14) {
             // Chunk ready, trigger HTTP download and next request
             handleChunkReady(message.data);
           } else if (message.opcode === 11) {

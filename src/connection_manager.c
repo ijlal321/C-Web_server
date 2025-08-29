@@ -3,7 +3,6 @@
 #include "http_server.h"
 #include "app_context.h"  // Global Context
 
-
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
         printf("Error Creating RW_lock\n");

@@ -5,7 +5,7 @@
 #include "app_context.h"
 
 
-int ui_init(struct AppContext * ctx);
+webview_t ui_init();
 
 webview_t ui_webview_window_init();
 

@@ -276,15 +276,14 @@
 			const start = chunk_id * CHUNK_SIZE;
 			const end = Math.min(start + CHUNK_SIZE, file.size);
 			const blob = file.file.slice(start, end);
-			// Upload via HTTP POST to /upload_chunk
-			const formData = new FormData();
-			formData.append('public_id', public_id);
-			formData.append('file_id', file_id);
-			formData.append('chunk_id', chunk_id);
-			formData.append('chunk', blob, file.name + '.part' + chunk_id);
-			fetch('http://localhost:8080/upload_chunk', {
+			// Upload via HTTP POST to /upload_chunk with query params and raw binary body
+			const url = `http://localhost:8080/upload_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			fetch(url, {
 				method: 'POST',
-				body: formData
+				headers: {
+					'Content-Type': 'application/octet-stream'
+				},
+				body: blob
 			}).then(resp => {
 				if (!resp.ok) throw new Error('Upload failed');
 				showStatus('Chunk uploaded', false);

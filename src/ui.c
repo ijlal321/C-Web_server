@@ -81,28 +81,28 @@ int ui_set_html(webview_t w) {
     return 0;
 }
 
-int ui_init(struct AppContext * ctx){
+webview_t ui_init(){
     // Initialize the webview Window
-    ctx->w = ui_webview_window_init();
-    if (ctx->w == NULL) {
+    webview_t w = ui_webview_window_init();
+    if (w == NULL) {
         fprintf(stderr, "❌ Failed to create display window\n");
-        return 1;
+        return NULL;
     }
 
     // Bind C functions to JavaScript
     // if (ui_bind_all_functions(ctx) != 0) {
     //     fprintf(stderr, "❌ Failed to bind JavaScript functions\n");
-    //     webview_destroy(ctx->w);
-    //     return 1;
+    //     webview_destroy(w);
+    //     return NULL;
     // }
 
     // Load HTML content
-    if (ui_set_html(ctx->w) != 0) {
+    if (ui_set_html(w) != 0) {
         fprintf(stderr, "❌ Failed to set HTML content\n");
-        webview_destroy(ctx->w);
-        return 1;
+        webview_destroy(w);
+        return NULL;
     }
-    return 0;
+    return w;
 }
 
 

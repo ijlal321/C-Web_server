@@ -58,7 +58,6 @@ void ws_ready(struct mg_connection *conn, void *cbdata) {
 }
 
 int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, void *cbdata) {
-    
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
@@ -180,6 +179,7 @@ int ws_manager_destroy(){
 }
 
 void ws_start(struct mg_context * cw_ctx, struct AppContext * app_ctx){
+
     mg_set_websocket_handler(cw_ctx, WEB_SOCKET_PATH,
                             ws_connect,
                             ws_ready,

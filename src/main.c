@@ -7,24 +7,24 @@
 int main(void) {
     struct AppContext app_ctx = {0};
     chunk_manager_init(&app_ctx.chunk_mgr);
+    cm_init(&app_ctx.connection_mgr);
 
+    
     // CONNECTIONS: start listening to connections on antoher thread
     pthread_t th;
     pthread_create(&th, NULL, start_connections, (void * )&app_ctx); 
     
     // SCREEN : init screen_size, UI, etc 
-    if (ui_init(&app_ctx) != 0){    
+    webview_t w = ui_init();
+    if (w == NULL) {
         return 1;
     }
 
-    cm_init(&app_ctx.connection_mgr);
-
-
     // Run the webview
-    webview_run(app_ctx.w); // Must run on main thread
+    webview_run(w); // Must run on main thread
 
     // CLEANUP
-    webview_destroy(app_ctx.w);
+    webview_destroy(w);
     pthread_join(th, NULL);
     return 0;
 }
