@@ -26,8 +26,8 @@
 		// Store files by public_id
 		const filesByPublicId = {};
 
-		const MAX_PARALLEL_CHUNKS = 4;
-		const CHUNK_SIZE = 1024 * 1024 * 5;
+		const CHUNK_SIZE = 1024 * 1024 * 20;
+		const MAX_PARALLEL_CHUNKS = 30;
 		let my_public_id = -1;
 
 		// Track download state for each file: fileKey -> {chunks, received, totalChunks, fileName, fileSize}
@@ -46,18 +46,64 @@
 				if (msg.opcode === 10 && msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
 					filesByPublicId[msg.data.public_id] = msg.data.files;
 					renderFiles();
-				}else if (msg.opcode === 2) {
+				} else if (msg.opcode === 2) {
 					// Accept public_id from server
 					if (typeof msg.data === 'object' && 'public_id' in msg.data) {
 						my_public_id = msg.data.public_id;
-						console.log("id receid\ved : ", msg.data.public_id);
+						console.log("id received : ", msg.data.public_id);
 					}
+				} else if (msg.opcode === 14 && msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
+					download_chunk(msg);
 				}
-				// Download functionality removed for now
 			} catch (e) {
 				// Ignore non-JSON
 			}
 		}
+
+	function download_chunk(msg) {
+		// Download chunk via HTTP and save it
+		const { public_id, file_id, chunk_id } = msg.data;
+		const fileKey = public_id + ':' + file_id;
+		const state = downloadState[fileKey];
+		if (!state) {
+			console.warn("No download state for fileKey", fileKey);
+			return;
+		}
+		if (state.chunks[chunk_id] != null){
+			console.warn("Already Got File Chunk ?", fileKey, chunk_id);
+			return;
+		}
+		const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+		fetch(url)
+			.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+			.then(buf => {
+				state.chunks[chunk_id] = buf;
+				state.received[chunk_id] = true;
+				state.completed++;
+				console.log(`Chunk ${chunk_id} downloaded and saved for fileKey ${fileKey}`);
+
+				// Check if all chunks are received
+				if (state.completed === state.totalChunks) {
+					// All chunks received, assemble and download
+					const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
+					const a = document.createElement('a');
+					a.href = URL.createObjectURL(blob);
+					a.download = state.fileName;
+					a.click();
+					delete downloadState[fileKey];
+					console.log('File download complete:', state.fileName);
+				} else {
+					// Request the next chunk if not completed
+					const next_chunk_id = state.next_Chunk_index++;
+					if (next_chunk_id < state.totalChunks) {
+						send_chunk_request(public_id, file_id, next_chunk_id);
+					}
+				}
+			})
+			.catch(err => {
+				console.error('Chunk download failed:', err);
+			});
+	}
 
 		function send_chunk_request(public_id, file_id, chunk_id) {
 			ws.send(JSON.stringify({
@@ -69,7 +115,7 @@
 					chunk_id: chunk_id
 				}
 			}));
-			console.log("reqesut for id: " , chunk_id, " is sent");
+			// console.log("reqesut for id: " , chunk_id, " is sent");
 		}
 
 
