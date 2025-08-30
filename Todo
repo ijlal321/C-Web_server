@@ -4,3 +4,5 @@
 // all error printing will be done at heighest level only
 
 // fix n chuks per file max + cleanup
+
+// next goal, load directly from file, no js

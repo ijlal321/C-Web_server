@@ -90,6 +90,10 @@
 					a.href = URL.createObjectURL(blob);
 					a.download = state.fileName;
 					a.click();
+					if (state.downloadStartTime && state.btn) {
+						const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
+						state.btn.textContent = `Download (Done in ${elapsed}s)`;
+					}
 					delete downloadState[fileKey];
 					console.log('File download complete:', state.fileName);
 				} else {
@@ -145,7 +149,9 @@
 								fileName: f.name,
 								fileSize: f.size,
 								next_Chunk_index : MAX_PARALLEL_CHUNKS,
-								completed: 0
+								completed: 0,
+								downloadStartTime: Date.now(),
+							    btn: btn
 							};
 							// Send MAX_PARALLEL_CHUNKS requests for this file
 							for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
