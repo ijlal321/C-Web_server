@@ -96,7 +96,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     // Allocate buffer for chunk data
     long content_length = ri->content_length;
     if (content_length <= 0 || content_length > CHUNK_SIZE) { // 1MB max
-        printf("invalid chunk size \n");
+        printf("invalid chunk size %d\n", content_length);
         mg_send_http_error(conn, 400, "%s", "Invalid content length");
         return 400;
     }
@@ -131,7 +131,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     pthread_rwlock_wrlock(&cur_chunk->rw_lock);
     cur_chunk->is_downloaded = 1;
     cur_chunk->data = (unsigned char *)chunk_data;
-    // cur_chunk->size = bytes_read;
+    cur_chunk->size = bytes_read;
     struct PublicIdEntry *entry, *tmp;
     HASH_ITER(hh, cur_chunk->public_ids, entry, tmp) {
         struct Client * cur_client = NULL;
@@ -192,11 +192,10 @@ static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
     // Send chunk as raw binary
     pthread_rwlock_rdlock(&cur_chunk->rw_lock);
-    size_t chunk_size = 42758;
-    mg_send_http_ok(conn, "application/octet-stream", chunk_size); // TODO: Replace by Size_t chunk_size
-    mg_write(conn, cur_chunk->data, chunk_size); // TODO: Replace by Size_t chunk_size
+    mg_send_http_ok(conn, "application/octet-stream", cur_chunk->size);
+    mg_write(conn, cur_chunk->data, cur_chunk->size);
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
-    printf("Chunk served (public_id=%d, file_id=%d, chunk_id=%d, size=%zu)\n", public_id, file_id, chunk_id, chunk_size); // TODO: Replace by Size_t chunk_size
+    printf("Chunk served (public_id=%d, file_id=%d, chunk_id=%d, size=%zu)\n", public_id, file_id, chunk_id, cur_chunk->size);
     return 200;
 }
 

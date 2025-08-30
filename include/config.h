@@ -28,6 +28,6 @@
 
 // ========== DATA TRANSFER =============
 
-#define CHUNK_SIZE (1024 * 1024 * 10)  // 1MB    
+#define CHUNK_SIZE (1024 * 1024 * 20)  // 1MB    
 
 #endif

@@ -25,7 +25,7 @@ struct FileChunk {
     struct PublicIdEntry *public_ids; // hash table of public ids of clients which needs this.
     int is_downloaded; // set when you successsfully fetch data from target.
     unsigned char * data; // dynamically allocated on heap. Must be freed. Size from Config.h.
-
+    size_t size;
     // last used ? // or something for cleanup, in case a client registered but never requested
     pthread_rwlock_t rw_lock;  
 

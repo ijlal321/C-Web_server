@@ -272,7 +272,7 @@
 				showStatus('File not found for upload', true);
 				return;
 			}
-			const CHUNK_SIZE = 1024 * 1024 * 10;
+			const CHUNK_SIZE = 1024 * 1024 * 20;
 			const start = chunk_id * CHUNK_SIZE;
 			const end = Math.min(start + CHUNK_SIZE, file.size);
 			const blob = file.file.slice(start, end);

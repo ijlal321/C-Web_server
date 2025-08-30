@@ -92,8 +92,8 @@
     }
 
     // Download logic
-    const CHUNK_SIZE = 1024 * 1024 * 10; // 1MB
-    const MAX_PARALLEL_CHUNKS = 200;
+    const CHUNK_SIZE = 1024 * 1024 * 20; // 1MB
+    const MAX_PARALLEL_CHUNKS = 10;
     // Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, senderPublicId}
     const downloadState = {};
 

@@ -82,6 +82,7 @@ struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id){
     new_chunk->chunk_key.public_id = public_id;
     new_chunk->chunk_key.file_id = file_id;
     new_chunk->chunk_key.chunk_id = chunk_id;
+    new_chunk->size = 0; // todo ? what to do here. should i leave it like this ?
     new_chunk->is_downloaded = 0;
     pthread_rwlock_init(&new_chunk->rw_lock, NULL);
     return new_chunk;
