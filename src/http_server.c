@@ -58,7 +58,6 @@ static int RootHandler(struct mg_connection *conn, void *cbdata) {
 
 // Handler for '/upload_chunk' POST
 static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
-
     // Only accept POST
     if (strcmp(mg_get_request_info(conn)->request_method, "POST") != 0) {
         mg_send_http_error(conn, 405, "%s", "Method Not Allowed");
@@ -88,20 +87,22 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
             chunk_id = atoi(buf);
         }
     }
-
     if (public_id < 0 || file_id < 0 || chunk_id < 0) {
+        printf("invalid query parameters \n");
         mg_send_http_error(conn, 400, "%s", "Missing or invalid query parameters");
         return 400;
     }
 
     // Allocate buffer for chunk data
     long content_length = ri->content_length;
-    if (content_length <= 0 || content_length > 1048576) { // 1MB max
+    if (content_length <= 0 || content_length > CHUNK_SIZE) { // 1MB max
+        printf("invalid chunk size \n");
         mg_send_http_error(conn, 400, "%s", "Invalid content length");
         return 400;
     }
     chunk_data = malloc((size_t)content_length);
     if (!chunk_data) {
+        printf("cannot malloc \n");
         mg_send_http_error(conn, 500, "%s", "Failed to allocate memory for chunk");
         return 500;
     }
@@ -111,18 +112,19 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         int r = mg_read(conn, chunk_data + bytes_read, (size_t)(content_length - bytes_read));
         if (r <= 0) {
             free(chunk_data);
+            printf("failed to read chunk \n");
             mg_send_http_error(conn, 400, "%s", "Failed to read chunk data");
             return 400;
         }
         bytes_read += r;
     }
-
     // Store chunk in memory and notify clients (reuse previous logic)
     struct ChunkKey chunk_key = {public_id, file_id, chunk_id};
     struct FileChunk * cur_chunk = NULL;
     HASH_FIND(hh, chunk_mgr->chunks, &chunk_key, sizeof(struct ChunkKey), cur_chunk);
     if (!cur_chunk) {
         free(chunk_data);
+        printf("chunk not found \n");
         mg_send_http_error(conn, 404, "%s", "Chunk not found");
         return 404;
     }
@@ -150,7 +152,57 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
 }
 
+static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
+    struct AppContext * app_ctx = (struct AppContext *)cbdata;
+    struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
+
+    char buf[64];
+    int public_id = -1, file_id = -1, chunk_id = -1;
+
+    const struct mg_request_info *ri = mg_get_request_info(conn);
+    const char *query = ri->query_string;
+
+    // Extract query parameters: public_id, file_id, chunk_id
+    if (query) {
+        if (mg_get_var(query, strlen(query), "public_id", buf, sizeof(buf)) > 0) {
+            public_id = atoi(buf);
+        }
+        if (mg_get_var(query, strlen(query), "file_id", buf, sizeof(buf)) > 0) {
+            file_id = atoi(buf);
+        }
+        if (mg_get_var(query, strlen(query), "chunk_id", buf, sizeof(buf)) > 0) {
+            chunk_id = atoi(buf);
+        }
+    }
+    if (public_id < 0 || file_id < 0 || chunk_id < 0) {
+        printf("invalid download query parameters \n");
+        mg_send_http_error(conn, 400, "%s", "Missing or invalid query parameters");
+        return 400;
+    }
+
+    // Lookup chunk in memory
+    struct ChunkKey chunk_key = {public_id, file_id, chunk_id};
+    struct FileChunk * cur_chunk = NULL;
+    HASH_FIND(hh, chunk_mgr->chunks, &chunk_key, sizeof(struct ChunkKey), cur_chunk);
+    if (!cur_chunk || !cur_chunk->is_downloaded || !cur_chunk->data) {
+        printf("chunk not found or not uploaded yet\n");
+        mg_send_http_error(conn, 404, "%s", "Chunk not found");
+        return 404;
+    }
+
+    // Send chunk as raw binary
+    pthread_rwlock_rdlock(&cur_chunk->rw_lock);
+    size_t chunk_size = 42758;
+    mg_send_http_ok(conn, "application/octet-stream", chunk_size); // TODO: Replace by Size_t chunk_size
+    mg_write(conn, cur_chunk->data, chunk_size); // TODO: Replace by Size_t chunk_size
+    pthread_rwlock_unlock(&cur_chunk->rw_lock);
+    printf("Chunk served (public_id=%d, file_id=%d, chunk_id=%d, size=%zu)\n", public_id, file_id, chunk_id, chunk_size); // TODO: Replace by Size_t chunk_size
+    return 200;
+}
+
+
 void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx){
     mg_set_request_handler(cw_ctx, "/upload_chunk", UploadChunkHandler, app_ctx);
+    mg_set_request_handler(cw_ctx, "/download_chunk", DownloadChunkHandler, app_ctx);
     mg_set_request_handler(cw_ctx, "/*", RootHandler, 0); // route to this case in all cases
 }

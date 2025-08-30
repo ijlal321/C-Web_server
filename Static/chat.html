@@ -92,7 +92,7 @@
     }
 
     // Download logic
-    const CHUNK_SIZE = 1024 * 1024; // 1MB
+    const CHUNK_SIZE = 1024 * 1024 * 10; // 1MB
     const MAX_PARALLEL_CHUNKS = 200;
     // Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, senderPublicId}
     const downloadState = {};
@@ -136,7 +136,6 @@
       }
     }
 
-    // handleChunkReady is now top-level
     function handleChunkReady(data) {
       // data: {public_id, file_id, chunk_id}
       const fileKey = data.public_id + ':' + data.file_id;
@@ -147,7 +146,12 @@
       fetch(url)
         .then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
         .then(buf => {
-          state.chunks[data.chunk_id] = buf;
+          // Only store up to CHUNK_SIZE bytes
+          let chunkBuf = buf;
+          if (buf.byteLength > CHUNK_SIZE) {
+            chunkBuf = buf.slice(0, CHUNK_SIZE);
+          }
+          state.chunks[data.chunk_id] = chunkBuf;
           state.received[data.chunk_id] = true;
           state.completed++;
           // Request next chunk if any
