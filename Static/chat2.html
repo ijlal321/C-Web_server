@@ -1,3 +1,4 @@
+	
 <!DOCTYPE html>
 <html>
 <head>
@@ -25,6 +26,14 @@
 		// Store files by public_id
 		const filesByPublicId = {};
 
+		const MAX_PARALLEL_CHUNKS = 4;
+		const CHUNK_SIZE = 1024 * 1024 * 5;
+		let my_public_id = -1;
+
+		// Track download state for each file: fileKey -> {chunks, received, totalChunks, fileName, fileSize}
+		const downloadState = {};
+
+		// Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, completed}
 		// Connect to WebSocket
 		const ws = new WebSocket(`ws://${window.location.hostname}:8080/chat`);
 		ws.onopen = function() {
@@ -37,109 +46,32 @@
 				if (msg.opcode === 10 && msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
 					filesByPublicId[msg.data.public_id] = msg.data.files;
 					renderFiles();
-				} else if (msg.opcode === 14 && msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
-					// Start parallel chunk download
-					handleChunkReady(msg.data);
+				}else if (msg.opcode === 2) {
+					// Accept public_id from server
+					if (typeof msg.data === 'object' && 'public_id' in msg.data) {
+						my_public_id = msg.data.public_id;
+						console.log("id receid\ved : ", msg.data.public_id);
+					}
 				}
-		// Download logic
-		const CHUNK_SIZE = 1024 * 1024 * 5; // 1MB
-		const MAX_PARALLEL_CHUNKS = 4;
-		// Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, completed}
-		const downloadState = {};
-
-		function handleChunkReady(data) {
-			// data: {public_id, file_id, chunk_id}
-			const fileKey = data.public_id + ':' + data.file_id;
-			// Find file info from filesByPublicId
-			let fileInfo = null;
-			const files = filesByPublicId[data.public_id];
-			if (Array.isArray(files)) {
-				fileInfo = files.find(f => f.id == data.file_id);
-			}
-			console.log("fileInfo:", fileInfo); // should be object or null
-			if (!fileInfo) {
-				console.log("fileInfo not found for file_id:", data.file_id, "in files:", files);
-				return;
-			}
-			console.log("file found for file_id:", data.file_id);
-			const totalChunks = Math.ceil(fileInfo.size / CHUNK_SIZE);
-			console.log("downloadState[" + fileKey + "]:", downloadState[fileKey]);
-			if (!downloadState[fileKey]) {
-				console.log("Creating downloadState for", fileKey, "with", totalChunks, "chunks");
-				downloadState[fileKey] = {
-					chunks: Array(totalChunks).fill(null),
-					received: Array(totalChunks).fill(false),
-					totalChunks,
-					fileName: fileInfo.name,
-					fileSize: fileInfo.size,
-					completed: 0,
-					nextChunk: 0
-				};
-				console.log("downloadState created for", fileKey);
-			}
-			console.log("Starting parallel chunk requests for", fileKey);
-			// Start up to MAX_PARALLEL_CHUNKS downloads
-			for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
-				console.log("Requesting chunk", i, "for", fileKey);
-				requestChunk(fileKey, i);
-			}
-			if (!downloadState[fileKey]) {
-          console.log("making file");
-				downloadState[fileKey] = {
-					chunks: Array(totalChunks).fill(null),
-					received: Array(totalChunks).fill(false),
-					totalChunks,
-					fileName: fileInfo.name,
-					fileSize: fileInfo.size,
-					completed: 0,
-					nextChunk: 0
-				};
-        console.log("file maked");
-			}
-      console.log("started sending req");
-			// Start up to MAX_PARALLEL_CHUNKS downloads
-			for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
-        console.log("req send");
-				requestChunk(fileKey, i);
-			}
-		}
-
-		function requestChunk(fileKey, chunkId) {
-			const state = downloadState[fileKey];
-			if (!state || state.received[chunkId]) return;
-			const [public_id, file_id] = fileKey.split(':');
-			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunkId)}`;
-			fetch(url)
-				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
-				.then(buf => {
-					state.chunks[chunkId] = buf;
-					state.received[chunkId] = true;
-					state.completed++;
-					// Start next chunk if any
-					let next = state.nextChunk;
-					while (next < state.totalChunks && state.received[next]) next++;
-					if (next < state.totalChunks) {
-						state.nextChunk = next + 1;
-						requestChunk(fileKey, next);
-					}
-					// If all chunks received, join and download
-					if (state.completed === state.totalChunks) {
-						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
-						const a = document.createElement('a');
-						a.href = URL.createObjectURL(blob);
-						a.download = state.fileName;
-						a.click();
-						delete downloadState[fileKey];
-					}
-				})
-				.catch(err => {
-					alert('Chunk download failed: ' + err);
-				});
-		}
+				// Download functionality removed for now
 			} catch (e) {
 				// Ignore non-JSON
 			}
-		};
+		}
+
+		function send_chunk_request(public_id, file_id, chunk_id) {
+			ws.send(JSON.stringify({
+				opcode: 12,
+				data: {
+					sender_public_id: my_public_id == -1 ? 1 : my_public_id,
+					public_id: Number(public_id),
+					file_id: file_id,
+					chunk_id: chunk_id
+				}
+			}));
+			console.log("reqesut for id: " , chunk_id, " is sent");
+		}
+
 
 		function renderFiles() {
 			const fileListDiv = document.getElementById('file-list');
@@ -156,16 +88,23 @@
 						const btn = document.createElement('button');
 						btn.textContent = 'Download';
 						btn.onclick = function() {
-							// Send download request via WebSocket (opcode 12)
-							ws.send(JSON.stringify({
-								opcode: 12,
-								data: {
-									sender_public_id: 1,
-									public_id: Number(public_id),
-									file_id: f.id,
-									chunk_id: 0
-								}
-							}));
+							// Calculate total chunks for this file
+							const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
+							const fileKey = public_id + ':' + f.id;
+							// Allocate space for chunks and received flags
+							downloadState[fileKey] = {
+								chunks: Array(totalChunks).fill(null),
+								received: Array(totalChunks).fill(false),
+								totalChunks,
+								fileName: f.name,
+								fileSize: f.size,
+								next_Chunk_index : MAX_PARALLEL_CHUNKS,
+								completed: 0
+							};
+							// Send MAX_PARALLEL_CHUNKS requests for this file
+							for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+								send_chunk_request(public_id, f.id, i)
+							}
 						};
 						entry.appendChild(btn);
 						fileListDiv.appendChild(entry);
