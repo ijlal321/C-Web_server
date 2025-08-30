@@ -5,7 +5,7 @@
 
 
 #define DOCUMENT_ROOT "./Static/"
-#define HTML_CLIENT_FILE "./Static/chat.html"
+#define HTML_CLIENT_FILE "./Static/chat2.html"
 
 // #define MAX_WEB_SOCKET_CLIENTS_DISCOVER 20 // max clients to discover
 #define MAX_WEB_SOCKET_CLIENTS 20
@@ -28,6 +28,6 @@
 
 // ========== DATA TRANSFER =============
 
-#define CHUNK_SIZE (1024 * 1024 * 20)  // 1MB    
+#define CHUNK_SIZE (1024 * 1024 * 5)  // 1MB    
 
 #endif

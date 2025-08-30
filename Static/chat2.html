@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>File List WebSocket Client</title>
+	<style>
+		body { font-family: sans-serif; max-width: 600px; margin: auto; }
+		#file-list { margin-top: 20px; }
+		.file-entry { margin-bottom: 10px; }
+		button { margin-left: 10px; }
+	</style>
+</head>
+<body>
+	<h2>File List (from WebSocket)</h2>
+	<div id="file-list"></div>
+	<script>
+		// Generate random private_key
+		function generateRandomId() {
+			let arr = new Uint8Array(16);
+			window.crypto.getRandomValues(arr);
+			return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+		}
+		const private_key = generateRandomId();
+
+		// Store files by public_id
+		const filesByPublicId = {};
+
+		// Connect to WebSocket
+		const ws = new WebSocket(`ws://${window.location.hostname}:8080/chat`);
+		ws.onopen = function() {
+			ws.send(JSON.stringify({ opcode: 0, data: { private_key } }));
+		};
+
+		ws.onmessage = function(event) {
+			try {
+				const msg = JSON.parse(event.data);
+				if (msg.opcode === 10 && msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
+					filesByPublicId[msg.data.public_id] = msg.data.files;
+					renderFiles();
+				} else if (msg.opcode === 14 && msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
+					// Start parallel chunk download
+					handleChunkReady(msg.data);
+				}
+		// Download logic
+		const CHUNK_SIZE = 1024 * 1024 * 5; // 1MB
+		const MAX_PARALLEL_CHUNKS = 4;
+		// Map: fileKey -> {chunks: [], received: [], totalChunks, fileName, fileSize, completed}
+		const downloadState = {};
+
+		function handleChunkReady(data) {
+			// data: {public_id, file_id, chunk_id}
+			const fileKey = data.public_id + ':' + data.file_id;
+			// Find file info from filesByPublicId
+			let fileInfo = null;
+			const files = filesByPublicId[data.public_id];
+			if (Array.isArray(files)) {
+				fileInfo = files.find(f => f.id == data.file_id);
+			}
+			console.log("fileInfo:", fileInfo); // should be object or null
+			if (!fileInfo) {
+				console.log("fileInfo not found for file_id:", data.file_id, "in files:", files);
+				return;
+			}
+			console.log("file found for file_id:", data.file_id);
+			const totalChunks = Math.ceil(fileInfo.size / CHUNK_SIZE);
+			console.log("downloadState[" + fileKey + "]:", downloadState[fileKey]);
+			if (!downloadState[fileKey]) {
+				console.log("Creating downloadState for", fileKey, "with", totalChunks, "chunks");
+				downloadState[fileKey] = {
+					chunks: Array(totalChunks).fill(null),
+					received: Array(totalChunks).fill(false),
+					totalChunks,
+					fileName: fileInfo.name,
+					fileSize: fileInfo.size,
+					completed: 0,
+					nextChunk: 0
+				};
+				console.log("downloadState created for", fileKey);
+			}
+			console.log("Starting parallel chunk requests for", fileKey);
+			// Start up to MAX_PARALLEL_CHUNKS downloads
+			for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+				console.log("Requesting chunk", i, "for", fileKey);
+				requestChunk(fileKey, i);
+			}
+			if (!downloadState[fileKey]) {
+          console.log("making file");
+				downloadState[fileKey] = {
+					chunks: Array(totalChunks).fill(null),
+					received: Array(totalChunks).fill(false),
+					totalChunks,
+					fileName: fileInfo.name,
+					fileSize: fileInfo.size,
+					completed: 0,
+					nextChunk: 0
+				};
+        console.log("file maked");
+			}
+      console.log("started sending req");
+			// Start up to MAX_PARALLEL_CHUNKS downloads
+			for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+        console.log("req send");
+				requestChunk(fileKey, i);
+			}
+		}
+
+		function requestChunk(fileKey, chunkId) {
+			const state = downloadState[fileKey];
+			if (!state || state.received[chunkId]) return;
+			const [public_id, file_id] = fileKey.split(':');
+			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunkId)}`;
+			fetch(url)
+				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+				.then(buf => {
+					state.chunks[chunkId] = buf;
+					state.received[chunkId] = true;
+					state.completed++;
+					// Start next chunk if any
+					let next = state.nextChunk;
+					while (next < state.totalChunks && state.received[next]) next++;
+					if (next < state.totalChunks) {
+						state.nextChunk = next + 1;
+						requestChunk(fileKey, next);
+					}
+					// If all chunks received, join and download
+					if (state.completed === state.totalChunks) {
+						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = state.fileName;
+						a.click();
+						delete downloadState[fileKey];
+					}
+				})
+				.catch(err => {
+					alert('Chunk download failed: ' + err);
+				});
+		}
+			} catch (e) {
+				// Ignore non-JSON
+			}
+		};
+
+		function renderFiles() {
+			const fileListDiv = document.getElementById('file-list');
+			fileListDiv.innerHTML = '';
+			Object.entries(filesByPublicId).forEach(([public_id, files]) => {
+				if (Array.isArray(files) && files.length > 0) {
+					const label = document.createElement('div');
+					label.textContent = `Files from public_id ${public_id}:`;
+					fileListDiv.appendChild(label);
+					files.forEach(f => {
+						const entry = document.createElement('div');
+						entry.className = 'file-entry';
+						entry.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+						const btn = document.createElement('button');
+						btn.textContent = 'Download';
+						btn.onclick = function() {
+							// Send download request via WebSocket (opcode 12)
+							ws.send(JSON.stringify({
+								opcode: 12,
+								data: {
+									sender_public_id: 1,
+									public_id: Number(public_id),
+									file_id: f.id,
+									chunk_id: 0
+								}
+							}));
+						};
+						entry.appendChild(btn);
+						fileListDiv.appendChild(entry);
+					});
+				}
+			});
+		}
+	</script>
+</body>
+</html>
