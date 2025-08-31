@@ -26,8 +26,8 @@
 		// Store files by public_id
 		const filesByPublicId = {};
 
-		const CHUNK_SIZE = 1024 * 1024 * 10;
-		const MAX_PARALLEL_CHUNKS = 10;
+		const CHUNK_SIZE = 1024 * 1024 * 5;
+		const MAX_PARALLEL_CHUNKS = 20;
 		let my_public_id = -1;
 
 		// Track download state for each file: fileKey -> {chunks, received, totalChunks, fileName, fileSize}
