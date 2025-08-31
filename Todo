@@ -5,4 +5,9 @@
 
 // fix n chuks per file max + cleanup
 
-// next goal, load directly from file, no js
+code cleanup + error handling + proper communication.
+browser download fix. Index db. 
+
+only then we will move to webrtc
+
+after that we may move to reallly Oloo fast mode

@@ -7,6 +7,8 @@
 #include "web_socket.h"
 #include "app_context.h"
 
+#include "ws_helper.h"
+
 /*
         SOME IMPORTANT INFO ON WS FUNCTIONS
 
@@ -62,32 +64,26 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
     printf("Some client sent data: %.*s\n", (int)len, data);
-    // printf("Connection Opcode is: %d\n", con_opcode);
     
-    // Ignore anything that's not a text frame
-    // last 4 bits are used to represent opcode.
-    if ((con_opcode & 0x0F) != MG_WEBSOCKET_OPCODE_TEXT) {
-        printf("Ignoring non-text frame (opcode %d)\n", con_opcode);
+    // check opCode - Accept Only Text Here
+    if (ws_opcode_is_text(con_opcode) != 1){
         return 1;
     }
     
-    // convert data to json
-    cJSON *root = cJSON_Parse(data);
-    if (!root) {
-        printf("Not In JSON. Ignore.\n");
-        return -1;
+    // Parse json Message (So we can see its contents)
+    cJSON *root = parse_JSON_to_CJSON_root(data);
+    if (root == NULL) {
+        return 1;
     }
 
-    // get our Custom Opcode {from JSON}
-    const cJSON * opcode = cJSON_GetObjectItem(root, "opcode");
-    const cJSON * ws_data = cJSON_GetObjectItem(root, "data");
-    if (!cJSON_IsNumber(opcode) || !(cJSON_IsObject(ws_data) || cJSON_IsArray(ws_data)) ) {
-        printf("Invalid Structure of Websocket Request.'\n");
+    // Get Opcode and 
+    WsMsgHeader ws_msg_header = get_ws_msg_header(root);
+    if (ws_msg_header.data == NULL){
         cJSON_Delete(root);
         return 1;
     }
 
-    enum WsOPCodes op = (enum WsOPCodes)opcode->valueint;
+    enum WsOPCodes op = (enum WsOPCodes)ws_msg_header.opcode;
 
     switch (op) {
         case CLIENT_REGISTER:
