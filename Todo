@@ -22,8 +22,12 @@ real todo
 3. 
 
 
-//  I WAS DOING - DO CHEAT WITH LOCAL.
 
 
  //    CONCLUSIONS
 // no speed EFFECT , on loading FILE from UI, or reading from memory, if enough parallel chunks are doing work. OR EVEN NOT.
+
+//  WHAT SPEED AND CHUNK SHOULD I USE -> 20MB AND 20 PARALLEL
+
+// ok, so we need to know how to balance parallellism, 
+// and 2, know if connection is too slow, then move to 5MB Packets.
