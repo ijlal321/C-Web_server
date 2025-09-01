@@ -15,18 +15,18 @@
 	<h2>File List (from WebSocket)</h2>
 	<div id="file-list"></div>
 	<script>
-		// Generate random private_key
+		// Generate random private_id
 		function generateRandomId() {
 			let arr = new Uint8Array(16);
 			window.crypto.getRandomValues(arr);
 			return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 		}
-		const private_key = generateRandomId();
+		const private_id = generateRandomId();
 
 		// Store files by public_id
 		const filesByPublicId = {};
 
-		const CHUNK_SIZE = 1024 * 1024 * 5;
+		const CHUNK_SIZE = 1024 * 1024 * 512;
 		const MAX_PARALLEL_CHUNKS = 20;
 		let my_public_id = -1;
 
@@ -37,7 +37,7 @@
 		// Connect to WebSocket
 		const ws = new WebSocket(`ws://${window.location.hostname}:8080/chat`);
 		ws.onopen = function() {
-			ws.send(JSON.stringify({ opcode: 0, data: { private_key } }));
+			ws.send(JSON.stringify({ opcode: 0, data: { private_id } }));
 		};
 
 		ws.onmessage = function(event) {

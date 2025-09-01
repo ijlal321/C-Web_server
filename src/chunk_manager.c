@@ -6,7 +6,7 @@ void chunk_manager_init(struct ChunkManager * chunk_mgr){
 }
 
 
-void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
+void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
     // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
@@ -72,7 +72,7 @@ end:
 
 
 //cheat one
-void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
+void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
     // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
@@ -96,7 +96,7 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
         struct FileChunk * new_chunk = chunk_create(public_id, file_id, chunk_id);
         add_client_to_chunk(new_chunk, sender_public_id);
         // For testing: open file, read chunk, malloc and assign to new_chunk->data
-        const char *test_path = "D:/downloads/some_file.rar";
+        const char *test_path = "D:/downloads/rar_file.rar";
         FILE *fp = fopen(test_path, "rb");
         if (fp) {
             size_t chunk_size = CHUNK_SIZE;
@@ -105,11 +105,12 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
             size_t file_size = ftell(fp);
             if (offset < file_size) {
                 size_t to_read = chunk_size;
+                printf("data to read is %zu \n", to_read);
                 if (offset + chunk_size > file_size) to_read = file_size - offset;
                 fseek(fp, offset, SEEK_SET);
                 void *buf = malloc(to_read);
                 size_t got = fread(buf, 1, to_read, fp);
-                printf("original chunk size: %zu , but got %zu", to_read, got);
+                printf("original chunk size: %zu , but got %zu \n", to_read, got);
                 if (buf) {
                     new_chunk->data = buf;
                     new_chunk->size = to_read;

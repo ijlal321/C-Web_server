@@ -2,6 +2,9 @@
 
 #include "http_server.h"
 #include "app_context.h"  // Global Context
+#include "cJSON.h"
+
+#include "json_to_data.h"
 
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
@@ -42,23 +45,23 @@ void * start_connections(void * args){
 struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connection *conn, const cJSON *data){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
 
-    const cJSON * private_key = cJSON_GetObjectItem(data, "private_key");
-    if (!cJSON_IsString(private_key)){
-        printf("Private Key not available\n");
-        return NULL; // meaning close connection with this one.
+    // get private ID from websocket data field.
+    const char * private_id = j2d_get_string(data, "private_id");
+    if (private_id == NULL){
+        printf("Client did not sent a valid Private ID. Closing Connection.\n");
+        pthread_rwlock_unlock(&connection_mgr->rwlock);
+        return NULL;
     }
     
-    struct Client * new_client = malloc(sizeof(struct Client));
-    
-    strncpy(new_client->private_id, private_key->valuestring, PRIVATE_ID_SIZE-1);
-    new_client->private_id[PRIVATE_ID_SIZE-1] = '\0';
+    // create new client
+    int new_client_public_id = HASH_COUNT(connection_mgr->clients) + 1;
+    struct Client * new_client = client_create_new(private_id, new_client_public_id, "Cline nam here", conn);
+    if (new_client == NULL){
+        pthread_rwlock_unlock(&connection_mgr->rwlock);
+        return NULL;
+    }
 
-    new_client->conn = conn;
-    new_client->approved = 0;
-    int public_id = HASH_COUNT(connection_mgr->clients) + 1;
-    new_client->public_id = public_id;
-    pthread_rwlock_init(&new_client->rwlock, NULL);
-
+    // add client to list of clients.
     HASH_ADD_INT(connection_mgr->clients, public_id, new_client);
 
     pthread_rwlock_unlock(&connection_mgr->rwlock);
@@ -66,7 +69,8 @@ struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct 
 }
 
 void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
-    char buffer[500];
+    char buffer[128];
+    //                    10 +  4 +                      22  + 4 +2 = 42 byte total  
     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
@@ -300,7 +304,7 @@ void cm_send_files_to_client(struct ConnectionManager * connection_mgr, const cJ
     {
         pthread_rwlock_rdlock(&connection_mgr->rwlock);
         char * string_to_send = cJSON_PrintUnformatted(ws_data);
-        printf("data being sent to ui is: %s \n", string_to_send); 
+        printf("data being sent to client is: %s \n", string_to_send); 
         struct Client *cur, *temp;  
         HASH_ITER(hh, connection_mgr->clients, cur, temp ){
             mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send));

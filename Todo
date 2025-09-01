@@ -11,3 +11,15 @@ browser download fix. Index db.
 only then we will move to webrtc
 
 after that we may move to reallly Oloo fast mode
+
+
+//  ===============
+real todo
+
+1. client send a public name when connecting.
+2. Check if client already exist with this private ID. 
+(so reconnet ? i think just reject if req is to connect. use reconnet for reconnect)
+3. 
+
+
+//  I WAS DOING - DO CHEAT WITH LOCAL.

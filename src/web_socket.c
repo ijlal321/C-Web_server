@@ -7,8 +7,6 @@
 #include "web_socket.h"
 #include "app_context.h"
 
-#include "ws_helper.h"
-
 /*
         SOME IMPORTANT INFO ON WS FUNCTIONS
 
@@ -40,6 +38,14 @@
 
 */
 
+struct WsMsgHeader {
+    int opcode;
+    cJSON *data;
+} ;
+
+int ws_opcode_is_text(int con_opcode);
+cJSON * parse_JSON_to_CJSON_root(char * data);
+struct WsMsgHeader ws_get_msg_headers(cJSON *root);
 
 // ================= WS HANDLERS ===============
 
@@ -76,13 +82,15 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         return 1;
     }
 
-    // Get Opcode and 
-    WsMsgHeader ws_msg_header = get_ws_msg_header(root);
+    // Get Opcode and data fields from message
+    struct WsMsgHeader ws_msg_header = ws_get_msg_headers(root);
     if (ws_msg_header.data == NULL){
         cJSON_Delete(root);
         return 1;
     }
-
+    
+    // take fields out of struct.
+    const cJSON * ws_data = ws_msg_header.data;
     enum WsOPCodes op = (enum WsOPCodes)ws_msg_header.opcode;
 
     switch (op) {
@@ -182,4 +190,43 @@ void ws_start(struct mg_context * cw_ctx, struct AppContext * app_ctx){
                             ws_data,
                             ws_close,
                             (void *)app_ctx);
+}
+
+
+
+//  ========== Helper Functions ========== //
+
+int ws_opcode_is_text(int con_opcode){
+    // Ignore anything that's not a text frame
+    // last 4 bits are used to represent opcode.
+    if ((con_opcode & 0x0F) != MG_WEBSOCKET_OPCODE_TEXT) {
+        printf("Ignoring non-text frame (opcode %d)\n", con_opcode);
+        return 0;
+    }
+    return 1;
+}
+
+cJSON * parse_JSON_to_CJSON_root(char * data){
+    cJSON *root = cJSON_Parse(data);
+    if (!root) {
+        printf("Not In JSON. Ignore.\n");
+        return NULL;
+    }
+    return root;
+}
+
+struct WsMsgHeader ws_get_msg_headers(cJSON *root){
+    // get our Custom Opcode {from JSON}
+    struct WsMsgHeader header = {0, NULL}; // Default/sentinel return
+    const cJSON * opcode = cJSON_GetObjectItem(root, "opcode");
+    const cJSON * ws_data = cJSON_GetObjectItem(root, "data");
+    if (!cJSON_IsNumber(opcode) || !(cJSON_IsObject(ws_data) || cJSON_IsArray(ws_data)) ) {
+        printf("Invalid Structure of Websocket Request.'\n");
+        return header;
+    }
+
+    header.opcode = opcode->valueint;
+    header.data = (cJSON *)ws_data; 
+
+    return header;
 }
