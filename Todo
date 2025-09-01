@@ -23,3 +23,7 @@ real todo
 
 
 //  I WAS DOING - DO CHEAT WITH LOCAL.
+
+
+ //    CONCLUSIONS
+// no speed EFFECT , on loading FILE from UI, or reading from memory, if enough parallel chunks are doing work. OR EVEN NOT.

@@ -6,7 +6,7 @@ void chunk_manager_init(struct ChunkManager * chunk_mgr){
 }
 
 
-void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
+void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
     // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
@@ -72,7 +72,7 @@ end:
 
 
 //cheat one
-void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
+void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
     // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
