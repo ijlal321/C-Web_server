@@ -33,3 +33,12 @@ struct Client * client_create_new(const char * private_id, int public_id, const 
     return new_client;
 }
 
+struct Client * client_find_by_public_id(struct Client * clients, int public_id){
+    struct Client * client = NULL;
+    HASH_FIND_INT(clients, &public_id, client);
+    if (client == NULL){
+        printf("Client not exist for public id\n");
+        return NULL;
+    }
+    return client;
+}

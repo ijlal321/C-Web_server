@@ -38,6 +38,8 @@
 
 */
 
+// ======= Helper functions Headers =====//
+
 struct WsMsgHeader {
     int opcode;
     cJSON *data;
@@ -46,6 +48,10 @@ struct WsMsgHeader {
 int ws_opcode_is_text(int con_opcode);
 cJSON * parse_JSON_to_CJSON_root(char * data);
 struct WsMsgHeader ws_get_msg_headers(cJSON *root);
+
+
+// =============================================
+
 
 // ================= WS HANDLERS ===============
 
@@ -97,7 +103,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         case CLIENT_REGISTER:
             struct Client * client = cm_add_client(connection_mgr, conn, ws_data);
             if (client == NULL){ // some error occured
-                return 0;  // close connection.
+                return 1;  // 0 means close connection. we are not rn.
             }
             cm_send_public_id_to_client(conn, client->public_id);
             cm_add_client_to_UI(&connection_mgr->server, client);

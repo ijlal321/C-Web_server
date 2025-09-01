@@ -77,7 +77,7 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
 
 
 void cm_add_client_to_UI(struct Server * server, struct Client * client){
-    char buffer[500];
+    char buffer[127];  // total 76 byte array below.
     sprintf(buffer, "{\"opcode\":%d, \"data\":[{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}]}", ADD_CLIENT , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
@@ -101,25 +101,36 @@ void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_con
 }
 
 void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
-    int public_id = public_id_obj->valueint;
+
+    // Get public_id from data.
+    int public_id;    
+    if (j2d_get_int(ws_data, "public_id", &public_id) != 0){
+        printf("Cannot APprove Client Because Public Id not found.\n");
+        return;
+    }
+
+    // Lock the content manager to fund client
     printf("Public Id found is: %d \n", public_id);
     pthread_rwlock_rdlock(&connection_mgr->rwlock);
     
-    struct Client * client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+
+    // Find Client by Public_ID
+    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
     if (client == NULL){
-        printf("Client not exist for public id\n");
+        printf("Cannot Approve Client because No CLient with Public_id: %d \n", public_id);
         goto end;
     }
+
+    // Mark CLient Approved.
     pthread_rwlock_wrlock(&client->rwlock);
     if (client->approved == 1){
         printf("Client ALready approved\n");
-        goto end;
     }
     client->approved = 1;
-end:
     pthread_rwlock_unlock(&client->rwlock);
+
+    end:
+    // close connections gracefully
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;
 }

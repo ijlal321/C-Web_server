@@ -12,6 +12,13 @@ only then we will move to webrtc
 
 after that we may move to reallly Oloo fast mode
 
+// ====================
+
+// What I was doing ? 
+Gracefully send a payload via socket. malloc string, in a while loop. double space if too small using snprintf.
+// ALSO 
+SHOULD WE FIX APPROVE CLIENT AND DISSAPPROVE CLIENT IN 1 ? WITH A NEW_STATUS FIELD.
+
 
 //  ===============
 real todo

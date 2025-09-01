@@ -17,5 +17,6 @@ struct Client{
 };
 
 struct Client * client_create_new(const char * private_id, int public_id, const char * public_name, struct mg_connection * conn );
+struct Client * client_find_by_public_id(struct Client * clients, int public_id);
 
 #endif
