@@ -18,7 +18,9 @@ after that we may move to reallly Oloo fast mode
 MAKE BOTH WAY FILE UPLOAD DOWNLOAD.
 CHUNKS CLEAN UP. IMMEDIATE WHEN NOT NEEDED FOR NOW.2
 
-
+// error 
+   when downloading a file from client to ui, incomplete or error
+   when sending file info to client, somehwerer there segmentation fault too
 
 //  ===============
 real todo

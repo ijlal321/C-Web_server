@@ -1,4 +1,3 @@
-	
 <!DOCTYPE html>
 <html>
 <head>
@@ -14,7 +13,43 @@
 <body>
 	<h2>File List (from WebSocket)</h2>
 	<div id="file-list"></div>
+	<div style="margin-top:30px;">
+		<label style="color:blue; text-decoration:underline; cursor:pointer;">
+			<input type="file" id="file-input" multiple style="display:none;">Add Files
+		</label>
+	</div>
 	<script>
+		// Handle file input for adding new files
+		const fileInput = document.getElementById('file-input');
+		let fileIdCounter = 1;
+		fileInput.addEventListener('change', function(e) {
+			if (!fileInput.files || fileInput.files.length === 0) return;
+			const filesArr = Array.from(fileInput.files).map(f => ({
+				id: fileIdCounter++,
+				name: f.name,
+				size: f.size,
+				type: f.type || '',
+				file: f, // keep original File object for possible upload
+			}));
+			// Send opcode 8 with new files to websocket
+			if (ws && ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({
+					opcode: 8,
+					data: {
+						public_id: my_public_id == -1 ? 1 : my_public_id,
+						file_count: filesArr.length,
+						files: filesArr.map(({file, ...rest}) => rest)
+					}
+				}));
+			}
+			// Optionally, you can also add these files to filesByPublicId for immediate UI feedback
+			if (my_public_id !== -1) {
+				if (!Array.isArray(filesByPublicId[my_public_id])) filesByPublicId[my_public_id] = [];
+				filesByPublicId[my_public_id].push(...filesArr);
+				renderFiles();
+			}
+			fileInput.value = '';
+		});
 		// Generate random private_id
 		function generateRandomId() {
 			let arr = new Uint8Array(16);
@@ -54,10 +89,45 @@
 					}
 				} else if (msg.opcode === 14 && msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
 					download_chunk(msg);
+				} else if (msg.opcode === 13 && msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
+					uploadChunkFromUiFiles(msg.data.public_id, msg.data.file_id, msg.data.chunk_id);
 				}
 			} catch (e) {
 				// Ignore non-JSON
 			}
+		}
+
+
+		// Upload a chunk from the user's added files (for admin or file owner)
+		function uploadChunkFromUiFiles(public_id, file_id, chunk_id) {
+			// Find the file in filesByPublicId[my_public_id] if available
+			const myFiles = filesByPublicId[my_public_id] || [];
+			const file = myFiles.find(f => f.id === file_id && f.file);
+			if (!file || !file.file) {
+				// Optionally, try to find in a global uiFilesArr if you use one
+				console.warn('File not found for upload', file_id);
+				return;
+			}
+			const start = chunk_id * CHUNK_SIZE;
+			const end = Math.min(start + CHUNK_SIZE, file.size);
+			const blob = file.file.slice(start, end);
+			// Upload via HTTP POST to /upload_chunk with query params and raw binary body
+			const url = `http://${window.location.hostname}:8080/upload_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/octet-stream'
+				},
+				body: blob
+			}).then(resp => {
+				if (!resp.ok) throw new Error('Upload failed');
+				// Optionally, show status
+				// showStatus('Chunk uploaded', false);
+			}).catch(err => {
+				// Optionally, show status
+				// showStatus('Chunk upload error: ' + err, true);
+				console.error('Chunk upload error:', err);
+			});
 		}
 
 		function download_chunk(msg) {
@@ -131,34 +201,56 @@
 					const label = document.createElement('div');
 					label.textContent = `Files from public_id ${public_id}:`;
 					fileListDiv.appendChild(label);
-					files.forEach(f => {
+					files.forEach((f, idx) => {
 						const entry = document.createElement('div');
 						entry.className = 'file-entry';
 						entry.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
-						const btn = document.createElement('button');
-						btn.textContent = 'Download';
-						btn.onclick = function() {
-							// Calculate total chunks for this file
-							const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
-							const fileKey = public_id + ':' + f.id;
-							// Allocate space for chunks and received flags
-							downloadState[fileKey] = {
-								chunks: Array(totalChunks).fill(null),
-								received: Array(totalChunks).fill(false),
-								totalChunks,
-								fileName: f.name,
-								fileSize: f.size,
-								next_Chunk_index : MAX_PARALLEL_CHUNKS,
-								completed: 0,
-								downloadStartTime: Date.now(),
-							    btn: btn
+						// If this is my file, show Remove, else show Download
+						if (String(public_id) === String(my_public_id)) {
+							const btn = document.createElement('button');
+							btn.textContent = 'Remove';
+							btn.onclick = function() {
+								// Remove from UI
+								files.splice(idx, 1);
+								renderFiles();
+								// Optionally, notify server of removal
+								if (ws && ws.readyState === WebSocket.OPEN) {
+									ws.send(JSON.stringify({
+										opcode: 9,
+										data: {
+											public_id: my_public_id,
+											file_id: f.id
+										}
+									}));
+								}
 							};
-							// Send MAX_PARALLEL_CHUNKS requests for this file
-							for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
-								send_chunk_request(public_id, f.id, i)
-							}
-						};
-						entry.appendChild(btn);
+							entry.appendChild(btn);
+						} else {
+							const btn = document.createElement('button');
+							btn.textContent = 'Download';
+							btn.onclick = function() {
+								// Calculate total chunks for this file
+								const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
+								const fileKey = public_id + ':' + f.id;
+								// Allocate space for chunks and received flags
+								downloadState[fileKey] = {
+									chunks: Array(totalChunks).fill(null),
+									received: Array(totalChunks).fill(false),
+									totalChunks,
+									fileName: f.name,
+									fileSize: f.size,
+									next_Chunk_index : MAX_PARALLEL_CHUNKS,
+									completed: 0,
+									downloadStartTime: Date.now(),
+									btn: btn
+								};
+								// Send MAX_PARALLEL_CHUNKS requests for this file
+								for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+									send_chunk_request(public_id, f.id, i)
+								}
+							};
+							entry.appendChild(btn);
+						}
 						fileListDiv.appendChild(entry);
 					});
 				}

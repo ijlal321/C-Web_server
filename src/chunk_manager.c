@@ -36,7 +36,6 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
     chunk_key.file_id = file_id;
     chunk_key.chunk_id = chunk_id;
 
-
     pthread_rwlock_wrlock(&chunk_mgr->rw_lock);
 
     // Find Target Chunk

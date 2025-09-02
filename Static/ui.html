@@ -155,14 +155,104 @@
 				const files = clientFiles[client.public_id];
 				if (Array.isArray(files) && files.length > 0) {
 					const filesList = document.createElement('ul');
-					files.forEach(f => {
+					files.forEach((f, idx) => {
 						const li = document.createElement('li');
 						li.textContent = `${f.name} (${f.size} bytes, ${f.type || 'unknown'}) [id: ${f.id}]`;
+						// Only show download button for files from clients (not admin/public_id 0)
+						if (client.public_id !== 0) {
+							const btn = document.createElement('button');
+							btn.textContent = 'Download';
+							btn.onclick = function(e) {
+								e.stopPropagation();
+								// Parallel chunked download logic (like chat2.html)
+								const CHUNK_SIZE = 1024 * 1024 * 20;
+								const MAX_PARALLEL_CHUNKS = 20;
+								const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
+								const fileKey = client.public_id + ':' + f.id;
+								if (!window.downloadState) window.downloadState = {};
+								window.downloadState[fileKey] = {
+									chunks: Array(totalChunks).fill(null),
+									received: Array(totalChunks).fill(false),
+									totalChunks,
+									fileName: f.name,
+									fileSize: f.size,
+									next_Chunk_index: MAX_PARALLEL_CHUNKS,
+									completed: 0,
+									downloadStartTime: Date.now(),
+									btn: btn
+								};
+								// Send MAX_PARALLEL_CHUNKS requests for this file
+								for (let i = 0; i < Math.min(MAX_PARALLEL_CHUNKS, totalChunks); ++i) {
+									send_chunk_request(client.public_id, f.id, i);
+								}
+							};
+							li.appendChild(btn);
+						}
 						filesList.appendChild(li);
 					});
 					div.appendChild(document.createElement('br'));
 					div.appendChild(filesList);
 				}
+		// --- Parallel chunked download logic (like chat2.html) ---
+		function send_chunk_request(public_id, file_id, chunk_id) {
+			if (ws && ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({
+					opcode: 12,
+					data: {
+						sender_public_id: 0,
+						public_id: Number(public_id),
+						file_id: file_id,
+						chunk_id: chunk_id
+					}
+				}));
+			}
+		}
+
+		// Listen for chunk ready (opcode 14) and download chunk
+		function download_chunk(msg) {
+			const { public_id, file_id, chunk_id } = msg.data;
+			const fileKey = public_id + ':' + file_id;
+			const state = window.downloadState && window.downloadState[fileKey];
+			if (!state) {
+				console.warn("No download state for fileKey", fileKey);
+				return;
+			}
+			if (state.chunks[chunk_id] != null) {
+				console.warn("Already Got File Chunk?", fileKey, chunk_id);
+				return;
+			}
+			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			fetch(url)
+				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+				.then(buf => {
+					state.chunks[chunk_id] = buf;
+					state.received[chunk_id] = true;
+					state.completed++;
+					// Check if all chunks are received
+					if (state.completed === state.totalChunks) {
+						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = state.fileName;
+						a.click();
+						if (state.downloadStartTime && state.btn) {
+							const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
+							state.btn.textContent = `Download (Done in ${elapsed}s)`;
+						}
+						delete window.downloadState[fileKey];
+						console.log('File download complete:', state.fileName);
+					} else {
+						// Request the next chunk if not completed
+						const next_chunk_id = state.next_Chunk_index++;
+						if (next_chunk_id < state.totalChunks) {
+							send_chunk_request(public_id, file_id, next_chunk_id);
+						}
+					}
+				})
+				.catch(err => {
+					console.error('Chunk download failed:', err);
+				});
+		}
 
 				if (client.approved) {
 					div.title = 'Click to disapprove';
@@ -260,6 +350,11 @@
 				case 13:
 					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
 						uploadChunkFromUiFiles(msg.data.public_id, msg.data.file_id, msg.data.chunk_id);
+					}
+					break;
+				case 14:
+					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
+						download_chunk(msg);
 					}
 					break;
 				default:

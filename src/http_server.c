@@ -63,7 +63,6 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         mg_send_http_error(conn, 405, "%s", "Method Not Allowed");
         return 405;
     }
-
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
 
@@ -74,7 +73,6 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
     const struct mg_request_info *ri = mg_get_request_info(conn);
     const char *query = ri->query_string;
-
     // Extract query parameters: public_id, file_id, chunk_id
     if (query) {
         if (mg_get_var(query, strlen(query), "public_id", buf, sizeof(buf)) > 0) {
@@ -92,6 +90,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         mg_send_http_error(conn, 400, "%s", "Missing or invalid query parameters");
         return 400;
     }
+    
 
     // Allocate buffer for chunk data
     long content_length = ri->content_length;
@@ -100,12 +99,14 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         mg_send_http_error(conn, 400, "%s", "Invalid content length");
         return 400;
     }
+
     chunk_data = malloc((size_t)content_length);
     if (!chunk_data) {
         printf("cannot malloc \n");
         mg_send_http_error(conn, 500, "%s", "Failed to allocate memory for chunk");
         return 500;
     }
+
 
     long bytes_read = 0;
     while (bytes_read < content_length) {
@@ -118,6 +119,9 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         }
         bytes_read += r;
     }
+
+    pthread_rwlock_wrlock(&chunk_mgr->rw_lock);
+
     // Store chunk in memory and notify clients (reuse previous logic)
     struct ChunkKey chunk_key = {public_id, file_id, chunk_id};
     struct FileChunk * cur_chunk = NULL;
@@ -126,6 +130,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         free(chunk_data);
         printf("chunk not found \n");
         mg_send_http_error(conn, 404, "%s", "Chunk not found");
+        pthread_rwlock_unlock(&chunk_mgr->rw_lock);
         return 404;
     }
     pthread_rwlock_wrlock(&cur_chunk->rw_lock);
@@ -134,17 +139,28 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     cur_chunk->size = bytes_read;
     struct PublicIdEntry *entry, *tmp;
     HASH_ITER(hh, cur_chunk->public_ids, entry, tmp) {
-        struct Client * cur_client = NULL;
-        HASH_FIND(hh, app_ctx->connection_mgr.clients, &entry->public_id, sizeof(int), cur_client);
-        if (cur_client && cur_client->conn) {
+        struct mg_connection * target_conn = NULL;
+        printf("reached 1, public_id: %d\n", entry->public_id);
+        if (entry->public_id == 0){
+            printf("reached server\n");
+            target_conn = app_ctx->connection_mgr.server.conn;
+        }else{
+            printf("reached client\n");
+            struct Client * cur_client = NULL;
+            HASH_FIND(hh, app_ctx->connection_mgr.clients, &entry->public_id, sizeof(int), cur_client);
+            target_conn = cur_client->conn;
+        }
+        printf("reached 2\n");
+        if (target_conn) {
             char buffer[300];
             sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
-            int write_res = mg_websocket_write(cur_client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
+            int write_res = mg_websocket_write(target_conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
             printf("Ready Signal Sent to Client %d with res: %d\n", entry->public_id, write_res);
         }
     }
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
-
+    pthread_rwlock_unlock(&chunk_mgr->rw_lock);
+    printf("reached 4\n");
     mg_send_http_ok(conn, "text/plain", 2);
     mg_write(conn, "OK", 2);
     printf("Chunk received and stored in memory (public_id=%d, file_id=%d, chunk_id=%d, size=%ld)\n", public_id, file_id, chunk_id, bytes_read);
