@@ -60,54 +60,54 @@
 			}
 		}
 
-	function download_chunk(msg) {
-		// Download chunk via HTTP and save it
-		const { public_id, file_id, chunk_id } = msg.data;
-		const fileKey = public_id + ':' + file_id;
-		const state = downloadState[fileKey];
-		if (!state) {
-			console.warn("No download state for fileKey", fileKey);
-			return;
-		}
-		if (state.chunks[chunk_id] != null){
-			console.warn("Already Got File Chunk ?", fileKey, chunk_id);
-			return;
-		}
-		const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
-		fetch(url)
-			.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
-			.then(buf => {
-				state.chunks[chunk_id] = buf;
-				state.received[chunk_id] = true;
-				state.completed++;
-				console.log(`Chunk ${chunk_id} downloaded and saved for fileKey ${fileKey}`);
+		function download_chunk(msg) {
+			// Download chunk via HTTP and save it
+			const { public_id, file_id, chunk_id } = msg.data;
+			const fileKey = public_id + ':' + file_id;
+			const state = downloadState[fileKey];
+			if (!state) {
+				console.warn("No download state for fileKey", fileKey);
+				return;
+			}
+			if (state.chunks[chunk_id] != null){
+				console.warn("Already Got File Chunk ?", fileKey, chunk_id);
+				return;
+			}
+			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			fetch(url)
+				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+				.then(buf => {
+					state.chunks[chunk_id] = buf;
+					state.received[chunk_id] = true;
+					state.completed++;
+					console.log(`Chunk ${chunk_id} downloaded and saved for fileKey ${fileKey}`);
 
-				// Check if all chunks are received
-				if (state.completed === state.totalChunks) {
-					// All chunks received, assemble and download
-					const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
-					const a = document.createElement('a');
-					a.href = URL.createObjectURL(blob);
-					a.download = state.fileName;
-					a.click();
-					if (state.downloadStartTime && state.btn) {
-						const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
-						state.btn.textContent = `Download (Done in ${elapsed}s)`;
+					// Check if all chunks are received
+					if (state.completed === state.totalChunks) {
+						// All chunks received, assemble and download
+						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = state.fileName;
+						a.click();
+						if (state.downloadStartTime && state.btn) {
+							const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
+							state.btn.textContent = `Download (Done in ${elapsed}s)`;
+						}
+						delete downloadState[fileKey];
+						console.log('File download complete:', state.fileName);
+					} else {
+						// Request the next chunk if not completed
+						const next_chunk_id = state.next_Chunk_index++;
+						if (next_chunk_id < state.totalChunks) {
+							send_chunk_request(public_id, file_id, next_chunk_id);
+						}
 					}
-					delete downloadState[fileKey];
-					console.log('File download complete:', state.fileName);
-				} else {
-					// Request the next chunk if not completed
-					const next_chunk_id = state.next_Chunk_index++;
-					if (next_chunk_id < state.totalChunks) {
-						send_chunk_request(public_id, file_id, next_chunk_id);
-					}
-				}
-			})
-			.catch(err => {
-				console.error('Chunk download failed:', err);
-			});
-	}
+				})
+				.catch(err => {
+					console.error('Chunk download failed:', err);
+				});
+		}
 
 		function send_chunk_request(public_id, file_id, chunk_id) {
 			ws.send(JSON.stringify({

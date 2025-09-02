@@ -15,7 +15,9 @@ after that we may move to reallly Oloo fast mode
 // ====================
 
 // What I was doing ? 
-Gracefully send a payload via socket. malloc string, in a while loop. double space if too small using snprintf.
+MAKE BOTH WAY FILE UPLOAD DOWNLOAD.
+CHUNKS CLEAN UP. IMMEDIATE WHEN NOT NEEDED FOR NOW.2
+
 
 
 //  ===============
@@ -29,6 +31,7 @@ real todo
 
 
 
+
  //    CONCLUSIONS
 // no speed EFFECT , on loading FILE from UI, or reading from memory, if enough parallel chunks are doing work. OR EVEN NOT.
 
@@ -36,3 +39,14 @@ real todo
 
 // ok, so we need to know how to balance parallellism, 
 // and 2, know if connection is too slow, then move to 5MB Packets.
+
+
+
+
+//          TRICKS
+1. BYPASS HTTP WARNINGS.
+[ User Device ]
+   ↓  (QR Code)
+https://connect.yourdomain.com/init?target=192.168.1.5:8000
+   ↓ (Redirect or JS)
+http://192.168.1.5:8000  ← Main app runs here
