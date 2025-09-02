@@ -55,7 +55,7 @@ void chunk_client_register();
 
 // client requesting a chunk. if available, send ready message. else create and download it.
 // ofc if space available in pool.
-void chunk_request(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn);
+void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn);
 void add_client_to_chunk(struct FileChunk * new_chunk, int sender_public_id);
 struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id);
 

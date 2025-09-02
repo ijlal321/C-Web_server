@@ -112,42 +112,45 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             cm_register_server(connection_mgr, conn);
             break;
         case UI_APPROVE_CLIENT:
-            // TODO: alot of refactoring needed in this section. 2 times lock, finding, parsing public id...
-            cm_approve_client(connection_mgr, ws_data);
-            cm_notify_client_approved(connection_mgr, ws_data);
+            cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved
+            cm_notify_client_approval(connection_mgr, ws_data); // tell client about its approval
             printf("approve client called\n");
             break;
         case UI_DIS_APPROVE_CLIENT:
-            cm_disapprove_client(connection_mgr, ws_data);
-            cm_notify_client_disapproved(connection_mgr, ws_data);
+            cm_set_client_approval(connection_mgr, ws_data, 0); // set client to disaproved
+            cm_notify_client_approval(connection_mgr, ws_data); // notify client
             printf("UI_DIS_APPROVE_CLIENT client called\n");
             break;
         case CLIENT_ADD_FILES:
             // Handle Adding new files in client files
+            /// TODO: Duplicate Files ? i think lets leave it for now, they will have different id's anyways
             cm_add_files(connection_mgr, ws_data);
             cm_send_files_to_UI(&connection_mgr->server, root);
             printf("Handling ADD_FILES\n");
             break;
         case CLIENT_REMOVE_FILE:
             // Handle removing files from client files
+            /// TODO: File is Being transfered.
             cm_remove_files(connection_mgr, ws_data);
             cm_remove_files_from_UI(&connection_mgr->server, root);
             printf("Handling REMOVE_FILE\n");
             break;
         case UI_ADD_FILES:
             // Handle Adding new files in client files
+            /// TODO: finalize CLINT_ADD_FILE, then copy it here
             cm_server_add_files(connection_mgr, ws_data);
             cm_send_files_to_client(connection_mgr, root);
             printf("Handling ADD_FILES\n");
             break;
         case UI_REMOVE_FILE:
             // Handle removing files from client files
+            /// TODO: finalize CLINT_REMOVE_FILE, then copy it here
             cm_remove_server_files(connection_mgr, ws_data);
             cm_remove_files_from_clients(connection_mgr, root);
             printf("Handling REMOVE_FILE\n");
             break;
         case REQUEST_CHUNK:
-            chunk_request(app_ctx , ws_data, conn);
+            chunk_request_manage(app_ctx , ws_data, conn);
             printf("Handling REQUEST CHUNK\n");
             break;
         case ASK_FILES:

@@ -77,7 +77,7 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
 
 
 void cm_add_client_to_UI(struct Server * server, struct Client * client){
-    char buffer[127];  // total 76 byte array below.
+    char buffer[256];
     sprintf(buffer, "{\"opcode\":%d, \"data\":[{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}]}", ADD_CLIENT , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
@@ -100,7 +100,7 @@ void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_con
     return;
 }
 
-void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+void cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved){
 
     // Get public_id from data.
     int public_id;    
@@ -123,10 +123,10 @@ void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * 
 
     // Mark CLient Approved.
     pthread_rwlock_wrlock(&client->rwlock);
-    if (client->approved == 1){
-        printf("Client ALready approved\n");
-    }
-    client->approved = 1;
+    // if (client->approved == 1){
+    //     printf("Client ALready approved\n");
+    // }
+    client->approved = approved;
     pthread_rwlock_unlock(&client->rwlock);
 
     end:
@@ -136,100 +136,103 @@ void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * 
 }
 
 
-void cm_notify_client_approved(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
-    int public_id = public_id_obj->valueint;
-    printf("Public Id found is: %d \n", public_id);
+void cm_notify_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    
+    // Get public_id from data.
+    int public_id;    
+    if (j2d_get_int(ws_data, "public_id", &public_id) != 0){
+        printf("Cannot APprove Client Because Public Id not found.\n");
+        return;
+    }
+
+
     pthread_rwlock_rdlock(&connection_mgr->rwlock);
     
-    struct Client * client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
-    
-    char buffer[500];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", SERVER_APPROVE_CLIENT);
-    mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));    
-
-    pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return;
-}
-
-void cm_disapprove_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
-    int public_id = public_id_obj->valueint;
-    printf("Public Id found is: %d \n", public_id);
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
-    
-    struct Client * client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
+    // Find Client by Public_ID
+    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
     if (client == NULL){
-        printf("Client not exist for public id\n");
+        printf("Cannot Approve Client because No CLient with Public_id: %d \n", public_id);
         goto end;
     }
-    pthread_rwlock_wrlock(&client->rwlock);
-    if (client->approved == 0){
-        printf("Client ALready Disapproved\n");
-        goto end;
-    }
-    client->approved = 0;
-end:
-    pthread_rwlock_unlock(&client->rwlock);
-    pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return;
-}
-
-
-void cm_notify_client_disapproved(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    const cJSON * public_id_obj = cJSON_GetObjectItem(ws_data, "public_id");
-    int public_id = public_id_obj->valueint;
-    printf("Public Id found is: %d \n", public_id);
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
     
-    struct Client * client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, client);
-    
-    char buffer[500];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", SERVER_DIS_APPROVE_CLIENT);
+    // Lock Client for readinf
+    pthread_rwlock_rdlock(&client->rwlock);
+    char buffer[50];
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", client->approved == 1 ? SERVER_APPROVE_CLIENT : SERVER_DIS_APPROVE_CLIENT);
     mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));    
+    pthread_rwlock_unlock(&client->rwlock);
 
+    // gracefully exit lock.
+end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;
 }
-
 
 void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
-    int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint;
-    int file_count = cJSON_GetObjectItem(ws_data, "file_count")->valueint;
-    printf("public_id = %d, file_count = %d\n", public_id, file_count);
-    struct Client * cur_client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, cur_client);
     
+    // Get public_id and file_count from data.
+    int public_id, file_count;    
+    if (j2d_get_int(ws_data, "public_id", &public_id) != 0 || j2d_get_int(ws_data, "file_count", &file_count) != 0){
+        printf("Cannot add files - No public_id or file_count was found in message.\n");
+        return;
+    }
+    
+
+    // Lock the connection Manager to get Client.
+    printf("public_id = %d, file_count = %d\n", public_id, file_count);
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+
+
+    // Find Client by Public_ID
+    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
+    if (client == NULL){
+        printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
+        goto end;
+    }
+    
+    // Get array of Files Object
     const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
-
-    for (int i = 0; i < file_count; i++) {
-        struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
-        cJSON *file = cJSON_GetArrayItem(files_obj, i);
-        
-        const char *name = cJSON_GetObjectItem(file, "name")->valuestring;
-        int size = cJSON_GetObjectItem(file, "size")->valueint;
-        const char *type = cJSON_GetObjectItem(file, "type")->valuestring;
-        int id = cJSON_GetObjectItem(file, "id")->valueint;
-        
-        printf("File %d:\n", i + 1);
-        strncpy(new_file->name, name, sizeof(new_file->name));
-        printf("  Name: %s\n", name);
-        new_file->size = size;
-        printf("  Size: %d\n", size);
-        strncpy(new_file->type, type, sizeof(new_file->type));
-        printf("  Type: %s\n", type);
-        new_file->id = id;
-        printf("  ID:   %d\n", id);
-
-        new_file->is_transfering = 0;
-        pthread_rwlock_init(&new_file->rw_lock, NULL);
-        HASH_ADD_INT(cur_client->files, id, new_file);
+    if (files_obj == NULL){
+        printf("Cannot Add Files - No files data found\n");
+        goto end;   
     }
 
+    for (int i = 0; i < file_count; i++) {
+        // get current file
+        cJSON *file = cJSON_GetArrayItem(files_obj, i);
+        if (file == NULL){
+            continue;
+        }
+
+        // get file fields
+        const char *name = j2d_get_string(file, "name");  
+        const char *type = j2d_get_string(file, "type");  
+        int id;
+        size_t size;
+
+        // Fields CHecking. IMP: Name can be empty.
+        if (j2d_get_int(file, "id", &id) != 0 || j2d_get_size_t(file, "size", &size) != 0 || type == NULL){
+            printf("Canonot Add Filed - Incomplete Fields.\n");
+            continue;
+        }
+
+        // create new file
+        struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
+        strncpy(new_file->name, name, sizeof(new_file->name)); // copy name
+        new_file->name[sizeof(new_file->name)-1] = '\0';        // safe file name null terminator
+        strncpy(new_file->type, type, sizeof(new_file->type));  // copy type
+        new_file->type[sizeof(new_file->type)-1] = '\0';  // safe null check
+        new_file->size = size;  // copy size
+        new_file->id = id;  // copy id
+
+        new_file->is_transfering = 0; 
+        pthread_rwlock_init(&new_file->rw_lock, NULL);
+
+        // add to hashmap
+        HASH_ADD_INT(client->files, id, new_file);
+    }
+
+end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;
 }
@@ -245,22 +248,34 @@ void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data){
 
 
 void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    // Get public_id and file_id from data.
+    int public_id, file_id;    
+    if (j2d_get_int(ws_data, "public_id", &public_id) != 0 || j2d_get_int(ws_data, "file_id", &file_id) != 0){
+        printf("Cannot add files - No public_id or file_id was found in message.\n");
+        return;
+    }
+    
+
+    // Lock the connection Manager to get Client.
+    printf("public_id = %d, file_id = %d\n", public_id, file_id);
     pthread_rwlock_rdlock(&connection_mgr->rwlock);
-    int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint;
-    int file_id = cJSON_GetObjectItem(ws_data, "file_id")->valueint;
-    printf("public_id = %d, file_count = %d\n", public_id, file_id);
 
-    struct Client * cur_client = NULL;
-    HASH_FIND_INT(connection_mgr->clients, &public_id, cur_client);
+    // Find Client by Public_ID
+    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
+    if (client == NULL){
+        printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
+        goto end;
+    }
 
-    pthread_rwlock_wrlock(&cur_client->rwlock);
+    pthread_rwlock_wrlock(&client->rwlock);
     struct File * cur_file = NULL;
-    HASH_FIND_INT(cur_client->files, &file_id, cur_file);
-    HASH_DEL(cur_client->files, cur_file);
+    HASH_FIND_INT(client->files, &file_id, cur_file);
+    HASH_DEL(client->files, cur_file);
     free(cur_file);
     printf("file removed\n");
-    pthread_rwlock_unlock(&cur_client->rwlock);
+    pthread_rwlock_unlock(&client->rwlock);
 
+end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;
 }

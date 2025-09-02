@@ -234,9 +234,12 @@
 					}
 					break;
 				case 8:
-					// ...existing code...
+					// Add files from client.
 					if (msg.data && typeof msg.data.public_id !== 'undefined' && Array.isArray(msg.data.files)) {
-						clientFiles[msg.data.public_id] = msg.data.files;
+						if (!Array.isArray(clientFiles[msg.data.public_id])) {
+							clientFiles[msg.data.public_id] = [];
+						}
+						clientFiles[msg.data.public_id].push(...msg.data.files);
 						renderClients();
 					}
 					break;
