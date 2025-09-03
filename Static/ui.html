@@ -33,6 +33,11 @@
 	</div>
 
 	<script>
+
+		const CHUNK_SIZE = 1024 * 1024 * 20;
+		const MAX_PARALLEL_CHUNKS = 20;
+		const downloadState = {};
+
 		// Store clients by public_id
 		const clients = {};
 		const clientFiles = {}; // public_id -> array of files
@@ -139,6 +144,7 @@
 			if (msg) setTimeout(() => { status.textContent = ''; }, 8000);
 		}
 
+	
 		function renderClients() {
 			const approvedDiv = document.getElementById('approved');
 			const disapprovedDiv = document.getElementById('disapproved');
@@ -165,12 +171,9 @@
 							btn.onclick = function(e) {
 								e.stopPropagation();
 								// Parallel chunked download logic (like chat2.html)
-								const CHUNK_SIZE = 1024 * 1024 * 20;
-								const MAX_PARALLEL_CHUNKS = 20;
 								const totalChunks = Math.ceil(f.size / CHUNK_SIZE);
 								const fileKey = client.public_id + ':' + f.id;
-								if (!window.downloadState) window.downloadState = {};
-								window.downloadState[fileKey] = {
+								downloadState[fileKey] = {
 									chunks: Array(totalChunks).fill(null),
 									received: Array(totalChunks).fill(false),
 									totalChunks,
@@ -193,70 +196,10 @@
 					div.appendChild(document.createElement('br'));
 					div.appendChild(filesList);
 				}
-		// --- Parallel chunked download logic (like chat2.html) ---
-		function send_chunk_request(public_id, file_id, chunk_id) {
-			if (ws && ws.readyState === WebSocket.OPEN) {
-				ws.send(JSON.stringify({
-					opcode: 12,
-					data: {
-						sender_public_id: 0,
-						public_id: Number(public_id),
-						file_id: file_id,
-						chunk_id: chunk_id
-					}
-				}));
-			}
-		}
-
-		// Listen for chunk ready (opcode 14) and download chunk
-		function download_chunk(msg) {
-			const { public_id, file_id, chunk_id } = msg.data;
-			const fileKey = public_id + ':' + file_id;
-			const state = window.downloadState && window.downloadState[fileKey];
-			if (!state) {
-				console.warn("No download state for fileKey", fileKey);
-				return;
-			}
-			if (state.chunks[chunk_id] != null) {
-				console.warn("Already Got File Chunk?", fileKey, chunk_id);
-				return;
-			}
-			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
-			fetch(url)
-				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
-				.then(buf => {
-					state.chunks[chunk_id] = buf;
-					state.received[chunk_id] = true;
-					state.completed++;
-					// Check if all chunks are received
-					if (state.completed === state.totalChunks) {
-						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
-						const a = document.createElement('a');
-						a.href = URL.createObjectURL(blob);
-						a.download = state.fileName;
-						a.click();
-						if (state.downloadStartTime && state.btn) {
-							const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
-							state.btn.textContent = `Download (Done in ${elapsed}s)`;
-						}
-						delete window.downloadState[fileKey];
-						console.log('File download complete:', state.fileName);
-					} else {
-						// Request the next chunk if not completed
-						const next_chunk_id = state.next_Chunk_index++;
-						if (next_chunk_id < state.totalChunks) {
-							send_chunk_request(public_id, file_id, next_chunk_id);
-						}
-					}
-				})
-				.catch(err => {
-					console.error('Chunk download failed:', err);
-				});
-		}
 
 				if (client.approved) {
 					div.title = 'Click to disapprove';
-					div.onclick = function() {
+					div.onclick = function () {
 						if (ws && ws.readyState === WebSocket.OPEN) {
 							ws.send(JSON.stringify({ opcode: 6, data: { public_id: client.public_id } }));
 							client.approved = 0;
@@ -266,7 +209,7 @@
 					approvedDiv.appendChild(div);
 				} else {
 					div.title = 'Click to approve';
-					div.onclick = function() {
+					div.onclick = function () {
 						if (ws && ws.readyState === WebSocket.OPEN) {
 							ws.send(JSON.stringify({ opcode: 4, data: { public_id: client.public_id } }));
 							client.approved = 1;
@@ -370,7 +313,6 @@
 				showStatus('File not found for upload', true);
 				return;
 			}
-			const CHUNK_SIZE = 1024 * 1024 * 20;
 			const start = chunk_id * CHUNK_SIZE;
 			const end = Math.min(start + CHUNK_SIZE, file.size);
 			const blob = file.file.slice(start, end);
@@ -390,6 +332,66 @@
 			});
 		}
 
+				// Listen for chunk ready (opcode 14) and download chunk
+		function download_chunk(msg) {
+			const { public_id, file_id, chunk_id } = msg.data;
+			const fileKey = public_id + ':' + file_id;
+			const state = downloadState[fileKey];
+			if (!state) {
+				console.warn("No download state for fileKey", fileKey);
+				return;
+			}
+			if (state.chunks[chunk_id] != null) {
+				console.warn("Already Got File Chunk?", fileKey, chunk_id);
+				return;
+			}
+			const url = `http://localhost:8080/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			fetch(url)
+				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
+				.then(buf => {
+					state.chunks[chunk_id] = buf;
+					state.received[chunk_id] = true;
+					state.completed++;
+					// Check if all chunks are received
+					if (state.completed === state.totalChunks) {
+						const blob = new Blob(state.chunks, { type: 'application/octet-stream' });
+						const a = document.createElement('a');
+						a.href = URL.createObjectURL(blob);
+						a.download = state.fileName;
+						a.click();
+						if (state.downloadStartTime && state.btn) {
+							const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
+							state.btn.textContent = `Download (Done in ${elapsed}s)`;
+						}
+						delete downloadState[fileKey];
+						console.log('File download complete:', state.fileName);
+					} else {
+						// Request the next chunk if not completed
+						const next_chunk_id = state.next_Chunk_index++;
+						if (next_chunk_id < state.totalChunks) {
+							send_chunk_request(public_id, file_id, next_chunk_id);
+						}
+					}
+				})
+				.catch(err => {
+					console.warn('Chunk download failed:', err);
+				});
+		}
+
+						// --- Parallel chunked download logic (like chat2.html) ---
+		function send_chunk_request(public_id, file_id, chunk_id) {
+			if (ws && ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({
+					opcode: 12,
+					data: {
+						sender_public_id: 0,
+						public_id: Number(public_id),
+						file_id: file_id,
+						chunk_id: chunk_id
+					}
+				}));
+			}
+		}
 		// Start WebSocket on page load
 		window.onload = connectWS;
 	</script>

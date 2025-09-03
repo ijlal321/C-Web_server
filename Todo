@@ -12,15 +12,18 @@ only then we will move to webrtc
 
 after that we may move to reallly Oloo fast mode
 
+
+
+
+
 // ====================
 
-// What I was doing ? 
-MAKE BOTH WAY FILE UPLOAD DOWNLOAD.
-CHUNKS CLEAN UP. IMMEDIATE WHEN NOT NEEDED FOR NOW.2
+   Ok so 
+Current approach is good. But when client asks. It will also tell chunk size it needs to be. This just left with , 2 clients asking for same file. So when someone else asks same file being downloaded, it will tell ( when tell upload it ready) that these chunks are available, and they are locked for you. Download them first. ) client B will download them, then ask for new.
 
-// error 
-   when downloading a file from client to ui, incomplete or error
-   when sending file info to client, somehwerer there segmentation fault too
+  or 
+
+chunked size are good. we just change parallellism. only hit will be when pausing,
 
 //  ===============
 real todo

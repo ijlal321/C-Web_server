@@ -140,17 +140,13 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     struct PublicIdEntry *entry, *tmp;
     HASH_ITER(hh, cur_chunk->public_ids, entry, tmp) {
         struct mg_connection * target_conn = NULL;
-        printf("reached 1, public_id: %d\n", entry->public_id);
         if (entry->public_id == 0){
-            printf("reached server\n");
             target_conn = app_ctx->connection_mgr.server.conn;
         }else{
-            printf("reached client\n");
             struct Client * cur_client = NULL;
             HASH_FIND(hh, app_ctx->connection_mgr.clients, &entry->public_id, sizeof(int), cur_client);
             target_conn = cur_client->conn;
         }
-        printf("reached 2\n");
         if (target_conn) {
             char buffer[300];
             sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
@@ -160,7 +156,6 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     }
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
     pthread_rwlock_unlock(&chunk_mgr->rw_lock);
-    printf("reached 4\n");
     mg_send_http_ok(conn, "text/plain", 2);
     mg_write(conn, "OK", 2);
     printf("Chunk received and stored in memory (public_id=%d, file_id=%d, chunk_id=%d, size=%ld)\n", public_id, file_id, chunk_id, bytes_read);
