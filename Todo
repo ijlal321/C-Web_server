@@ -15,10 +15,9 @@ after that we may move to reallly Oloo fast mode
 
    // doing rn
    3 main things
-   1. pause/resume handle.
-   3. (now) chunk management. increase or decrease parallelism. chunk size same. ()
+   1. pause/resume handle. ❌ we will just delete that chunk. (on download it can happen, but not in upload, bcz civetweb dont support it. moderen browsers does though). 
+   3. chunk management. increase or decrease parallelism. chunk size same. (use comparision with provided table to find if slow or fast).
    2. (later)multiple users downloading so should we optomize that ?
-   3. 
 
 
 // ====================
