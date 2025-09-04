@@ -64,6 +64,30 @@
 		const CHUNK_SIZE = 1024 * 1024 * 20;
 		const MAX_PARALLEL_CHUNKS = 20;
 		let my_public_id = -1;
+		let bytes_loaded_this_sec = 0;
+
+		const speedDiv = document.createElement('div');
+		speedDiv.style.margin = '10px 0';
+		speedDiv.style.fontWeight = 'bold';
+		speedDiv.id = 'download-speed';
+		document.body.insertBefore(speedDiv, document.getElementById('file-list'));
+
+		// Infinite 1-second timer to show download speed
+		setInterval(() => {
+			// Calculate speed in bytes/sec, show as KB/s or MB/s
+			let speed = bytes_loaded_this_sec;
+			let speedStr;
+			if (speed > 1024 * 1024) {
+				speedStr = (speed / (1024 * 1024)).toFixed(2) + ' MB/s';
+			} else if (speed > 1024) {
+				speedStr = (speed / 1024).toFixed(2) + ' KB/s';
+			} else {
+				speedStr = speed + ' B/s';
+			}
+			speedDiv.textContent = `Download speed: ${speedStr}`;
+			bytes_loaded_this_sec = 0;
+		}, 1000);
+
 
 		// Track download state for each file: fileKey -> {chunks, received, totalChunks, fileName, fileSize}
 		const downloadState = {};
@@ -130,54 +154,78 @@
 			});
 		}
 
-		function download_chunk(msg) {
-			// Download chunk via HTTP and save it
-			const { public_id, file_id, chunk_id } = msg.data;
-			const fileKey = public_id + ':' + file_id;
-			const state = downloadState[fileKey];
-			if (!state) {
-				console.warn("No download state for fileKey", fileKey);
-				return;
-			}
-			if (state.chunks[chunk_id] != null){
-				console.warn("Already Got File Chunk ?", fileKey, chunk_id);
-				return;
-			}
-			const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
-			fetch(url)
-				.then(resp => resp.ok ? resp.arrayBuffer() : Promise.reject('Failed to download chunk'))
-				.then(buf => {
-					state.chunks[chunk_id] = buf;
-					state.received[chunk_id] = true;
-					state.completed++;
-					console.log(`Chunk ${chunk_id} downloaded and saved for fileKey ${fileKey}`);
+			function download_chunk(msg) {
+				const { public_id, file_id, chunk_id } = msg.data;
+				const fileKey = public_id + ':' + file_id;
+				const state = downloadState[fileKey];
+				if (!state) {
+					console.warn("No download state for fileKey", fileKey);
+					return;
+				}
+				if (state.chunks[chunk_id] != null) {
+					console.warn("Already Got File Chunk ?", fileKey, chunk_id);
+					return;
+				}
 
-					// Check if all chunks are received
-					if (state.completed === state.totalChunks) {
-						// All chunks received, assemble and download
-						const blob = new Blob(state.chunks, {type: 'application/octet-stream'});
-						const a = document.createElement('a');
-						a.href = URL.createObjectURL(blob);
-						a.download = state.fileName;
-						a.click();
-						if (state.downloadStartTime && state.btn) {
-							const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
-							state.btn.textContent = `Download (Done in ${elapsed}s)`;
-						}
-						delete downloadState[fileKey];
-						console.log('File download complete:', state.fileName);
-					} else {
-						// Request the next chunk if not completed
-						const next_chunk_id = state.next_Chunk_index++;
-						if (next_chunk_id < state.totalChunks) {
-							send_chunk_request(public_id, file_id, next_chunk_id);
-						}
+				const url = `/download_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+
+				const xhr = new XMLHttpRequest();
+				xhr.open("GET", url, true);
+				xhr.responseType = "arraybuffer";
+
+				let lastLoaded = 0; // Track previous loaded value
+
+				// Progress callback (fires repeatedly as data arrives)
+				xhr.onprogress = function (event) {
+					if (event.lengthComputable) {
+						const delta = event.loaded - lastLoaded;
+						bytes_loaded_this_sec += delta;
+						lastLoaded = event.loaded;
 					}
-				})
-				.catch(err => {
-					console.error('Chunk download failed:', err);
-				});
-		}
+				};
+
+				// Success
+				xhr.onload = function () {
+					if (xhr.status === 200) {
+						const buf = xhr.response;
+						state.chunks[chunk_id] = buf;
+						state.received[chunk_id] = true;
+						state.completed++;
+						console.log(`Chunk ${chunk_id} downloaded and saved for fileKey ${fileKey}`);
+
+						// Check if all chunks are received
+						if (state.completed === state.totalChunks) {
+							const blob = new Blob(state.chunks, { type: 'application/octet-stream' });
+							const a = document.createElement('a');
+							a.href = URL.createObjectURL(blob);
+							a.download = state.fileName;
+							a.click();
+
+							if (state.downloadStartTime && state.btn) {
+								const elapsed = ((Date.now() - state.downloadStartTime) / 1000).toFixed(2);
+								state.btn.textContent = `Download (Done in ${elapsed}s)`;
+							}
+							delete downloadState[fileKey];
+							console.log('File download complete:', state.fileName);
+						} else {
+							// Request the next chunk
+							const next_chunk_id = state.next_Chunk_index++;
+							if (next_chunk_id < state.totalChunks) {
+								send_chunk_request(public_id, file_id, next_chunk_id);
+							}
+						}
+					} else {
+						console.error(`Failed to download chunk ${chunk_id}: HTTP ${xhr.status}`);
+					}
+				};
+
+				// Error
+				xhr.onerror = function () {
+					console.error('Chunk download failed (network error)');
+				};
+
+				xhr.send();
+			}
 
 		function send_chunk_request(public_id, file_id, chunk_id) {
 			ws.send(JSON.stringify({
