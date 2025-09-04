@@ -14,8 +14,12 @@ after that we may move to reallly Oloo fast mode
 
 
    // doing rn
-   show speed
-   chunk management on server + client
+   3 main things
+   1. (now) chunk management. increase or decrease parallelism. chunk size same.
+   
+   
+   2. (later)multiple users downloading so should we optomize that ?
+   3. 
 
 
 // ====================
