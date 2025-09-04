@@ -15,9 +15,8 @@ after that we may move to reallly Oloo fast mode
 
    // doing rn
    3 main things
-   1. (now) chunk management. increase or decrease parallelism. chunk size same.
-   
-   
+   1. pause/resume handle.
+   3. (now) chunk management. increase or decrease parallelism. chunk size same. ()
    2. (later)multiple users downloading so should we optomize that ?
    3. 
 
@@ -44,9 +43,12 @@ real todo
 
 
  //    CONCLUSIONS
-// no speed EFFECT , on loading FILE from UI, or reading from memory, if enough parallel chunks are doing work. OR EVEN NOT.
+// no speed EFFECT , on loading FILE from UI, or reading from memory, if enough parallel chunks are doing work.
 
 //  WHAT SPEED AND CHUNK SHOULD I USE -> 20MB AND 20 PARALLEL
+
+// we need to increase parallellism, to 20 MAX. if speed is possible. we will do it by comparing them to our expected speeds.
+Chunk is always 20MB. Which does cause an issue of pausing.
 
 // ok, so we need to know how to balance parallellism, 
 // and 2, know if connection is too slow, then move to 5MB Packets.
