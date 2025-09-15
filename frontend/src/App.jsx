@@ -9,7 +9,7 @@ function App() {
   const [is_approved, set_is_approved] = useState(true);  // TODO: Default true just for testing.
 
   const [our_files, set_our_files] = useState([]);  // files available on this device [uploaded by user]
-  const [available_files, set_available_files] = useState([]);  // files available on other devices
+  const [available_files, set_available_files] = useState({});  // files available on other devices
 
   useEffect(()=>{
     // setting setter functions

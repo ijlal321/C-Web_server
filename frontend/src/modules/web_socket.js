@@ -112,6 +112,7 @@ function handle_message(msg){
             ws_set_approved_state(true);
             break;  
         case WsOPCodes.UI_ADD_FILES:
+            ws_add_available_files(data);
             break;
         case WsOPCodes.SERVER_UPLOAD_CHUNK:
             break;
@@ -143,6 +144,25 @@ function ws_set_approved_state(new_state){
         return;
     }
     onApprovalStateChange(new_state);
+}
+
+function ws_add_available_files(data){
+    if (onAvailableFilesUpdate == null){
+        console.error("Client Logic Error: onAvailableFilesUpdate called before initialized");
+        return;
+    }
+    if (!data || typeof data.public_id == 'undefined' || !Array.isArray(data.files)) {
+        console.log("Add Available FIles: Data from server Invalid or INcomplete");
+        return;
+    }
+    onAvailableFilesUpdate(prev => {
+        const updated = { ...prev };
+        if (!updated[data.public_id]) {
+            updated[data.public_id] = [];
+        }
+        updated[data.public_id] = updated[data.public_id].concat(data.files);
+        return updated;
+    });
 }
 
 
