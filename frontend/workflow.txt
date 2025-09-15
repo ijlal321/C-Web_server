@@ -3,3 +3,16 @@
 
 3. only when see public id, that change screen to waiting for approval
 4. when client gets approved, then show main page.
+
+5. Make UI For Uploading File
+6. Make UI for Showing Available Files
+
+
+
+
+todo: 
+vite.config.js -> remove proxy
+app.jsx        -> approved must be false by default
+
+should we do:
+1. upload folder possible frombrowser, but caveats. we need to handle it anyways due to app. (later)

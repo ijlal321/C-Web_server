@@ -71,7 +71,7 @@ struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct 
 void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
     char buffer[128];
     //                    10 +  4 +                      22  + 4 +2 = 42 byte total  
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_NAME, public_id);
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_ID, public_id);
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
 
@@ -198,24 +198,25 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
     }
 
     for (int i = 0; i < file_count; i++) {
+        printf("reached 1\n");
         // get current file
         cJSON *file = cJSON_GetArrayItem(files_obj, i);
         if (file == NULL){
             continue;
         }
-
+printf("reached 2\n");
         // get file fields
         const char *name = j2d_get_string(file, "name");  
         const char *type = j2d_get_string(file, "type");  
         int id;
         size_t size;
-
+printf("reached 3\n");
         // Fields CHecking. IMP: Name can be empty.
         if (j2d_get_int(file, "id", &id) != 0 || j2d_get_size_t(file, "size", &size) != 0 || type == NULL){
             printf("Canonot Add Filed - Incomplete Fields.\n");
             continue;
         }
-
+printf("reached 4\n");
         // create new file
         struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
         strncpy(new_file->name, name, sizeof(new_file->name)); // copy name
@@ -224,14 +225,17 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
         new_file->type[sizeof(new_file->type)-1] = '\0';  // safe null check
         new_file->size = size;  // copy size
         new_file->id = id;  // copy id
-
+printf("reached 5\n");
         new_file->is_transfering = 0; 
         pthread_rwlock_init(&new_file->rw_lock, NULL);
-
+printf("reached 6\n");
         // add to hashmap
+        pthread_rwlock_wrlock(&client->rwlock);
+        printf("clinet-> files: %d, id: %d, new_file: %d", client->files == NULL ? 0 : 1, id, new_file == NULL ? 0 : 1);
         HASH_ADD_INT(client->files, id, new_file);
+        pthread_rwlock_unlock(&client->rwlock);
     }
-
+printf("reached 7\n");
 end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;

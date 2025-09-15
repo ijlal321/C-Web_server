@@ -4,7 +4,10 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  proxy: {
+    '/': 'http://localhost:8000',  // just for development. For hot reloading.
+  },
   server: {
-    port: 8081,
+    port: 4000,
   }
 })

@@ -9,7 +9,7 @@
 export const WsOPCodes = createEnum([
   'CLIENT_REGISTER',
   'UI_REGISTER',
-  'PUBLIC_NAME',         // Sending your public name
+  'PUBLIC_ID',         // Sending your public ID
   'ADD_CLIENT',
   'UI_APPROVE_CLIENT',
   'SERVER_APPROVE_CLIENT',
@@ -51,5 +51,18 @@ export function generateRandomId() {
     let arr = new Uint8Array(16);
     window.crypto.getRandomValues(arr);
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+export function get_key_from_file(file){
+  return `${file.name}_${file.size}`;
+}
+
+
+export function get_unique_files(old_files, new_files){
+    // remove duplicate files
+    const existing = new Set(old_files.map(f => get_key_from_file(f)));
+    const uniqueFiles = Array.from(new_files).filter(f => !existing.has(get_key_from_file(f)));
+
+    return uniqueFiles;
 }
 
