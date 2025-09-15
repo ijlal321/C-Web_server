@@ -9,6 +9,7 @@
 
 (available files: files coming from server)
 7. Make UI for available files 
+8. Handle UI When available File Removed
 8. Make UI for downloading available files 
 
 
