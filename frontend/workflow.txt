@@ -4,8 +4,13 @@
 3. only when see public id, that change screen to waiting for approval
 4. when client gets approved, then show main page.
 
-5. Make UI For Uploading File
-6. Make UI for Showing Available Files
+5. Make UI For Uploading Our File
+6. Make ui + handle removing Our File
+
+(available files: files coming from server)
+7. Make UI for available files 
+8. Make UI for downloading available files 
+
 
 
 
