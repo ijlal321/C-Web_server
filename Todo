@@ -87,7 +87,9 @@ https://connect.yourdomain.com/init?target=192.168.1.5:8000
 http://192.168.1.5:8000  ← Main app runs here
 
 
-
+//          ISSUES
 // segmentation faults
 public_id = 1, file_count = 6
-make: *** [Makefile:62: run] Segmentation fault
+make: *** [Makefile:62: run] Segmentation fault  // done hopefully. Non Initliazled client.files, must be null for uthash
+
+// uthash is not thread safe, so remove lock inside files. just use on client ?
