@@ -1,0 +1,5 @@
+1. client send ws req (called on ws.open)
+2. receive public id.
+
+3. only when see public id, that change screen to waiting for approval
+4. when client gets approved, then show main page.
