@@ -118,6 +118,9 @@ function handle_message(msg){
             break;
         case WsOPCodes.SERVER_CHUNK_READY:
             break;
+        case WsOPCodes.UI_REMOVE_FILE:
+            ws_remove_available_file(data);
+            break;
         default:
             console.log("Unknown Opcode Send: ", opcode);
     }
@@ -161,6 +164,26 @@ function ws_add_available_files(data){
             updated[data.public_id] = [];
         }
         updated[data.public_id] = updated[data.public_id].concat(data.files);
+        return updated;
+    });
+}
+
+function ws_remove_available_file(data){
+    if (onAvailableFilesUpdate == null){
+        console.error("Client Logic Error: onAvailableFilesUpdate called before initialized");
+        return;
+    }
+    if (!data || typeof data.public_id == 'undefined' || typeof data.file_id == 'undefined') {
+        console.log("Add Available FIles: Data from server Invalid or INcomplete");
+        return;
+    }
+    onAvailableFilesUpdate(prev => {
+        const updated = { ...prev };
+        if (!updated[data.public_id]) {
+            updated[data.public_id] = [];
+        }
+        // Remove the file with file_id from the array
+        updated[data.public_id] = updated[data.public_id].filter(f => f.id !== data.file_id);
         return updated;
     });
 }

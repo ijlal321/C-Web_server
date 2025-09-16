@@ -1,9 +1,11 @@
-import React from 'react';
+import React, {useState} from 'react';
 import * as web_socket from "../modules/web_socket.js";
 import * as utils from "../modules/utils.js";
 
 const TransferDashboard = ({our_files, set_our_files, available_files, set_available_files}) => {
     let fileIdCounter = 1; // for assigning ID to files.
+    const [cur_down_speed, set_cur_down_speed] = useState(0);
+
 
     const handle_file_upload = (event) => {
         // Safe Check
@@ -52,6 +54,10 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
         return;
     }
 
+    const handle_file_download = (file_public_id, file_id) => {
+
+    }
+
 
     return (
         <div style={{margin:"5% 10%"}}>
@@ -87,6 +93,7 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                                 <p><b>{idx+1}:
                                     Name: {f.name} </b><br />
                                     Size: {f.size} 
+                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(file_public_id, f.id)}>Download</button>
                                 </p>
                             </div>
                         ))}

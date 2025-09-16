@@ -122,8 +122,8 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             printf("UI_DIS_APPROVE_CLIENT client called\n");
             break;
         case CLIENT_ADD_FILES:
-            // Handle Adding new files in client files
-            /// TODO: Duplicate Files ? i think lets leave it for now, they will have different id's anyways
+            // Handle Adding new files in client files 
+            /// Note: All Duplicate handling will be done at client side. None Here.
             cm_add_files(connection_mgr, ws_data);
             cm_send_files_to_UI(&connection_mgr->server, root);
             printf("Handling ADD_FILES\n");
