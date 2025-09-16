@@ -12,6 +12,9 @@
 8. Handle UI When available File Removed
 8. Make UI for downloading available files 
 
+9. Handle Download file
+10. Handle if alot of files. then you would download n files at a time.
+
 
 
 

@@ -1,10 +1,15 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import * as web_socket from "../modules/web_socket.js";
 import * as utils from "../modules/utils.js";
+import * as file_downloader from "../modules/file_downloader.js"
 
 const TransferDashboard = ({our_files, set_our_files, available_files, set_available_files}) => {
     let fileIdCounter = 1; // for assigning ID to files.
     const [cur_down_speed, set_cur_down_speed] = useState(0);
+
+    useEffect(()=>{
+        file_downloader.registerOnDownloadSpeedUpdate(set_cur_down_speed);
+    });
 
 
     const handle_file_upload = (event) => {
@@ -54,8 +59,8 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
         return;
     }
 
-    const handle_file_download = (file_public_id, file_id) => {
-
+    const handle_file_download = (file_public_id, file) => {
+        file_downloader.start_download_file(file_public_id, file);
     }
 
 
@@ -93,13 +98,16 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                                 <p><b>{idx+1}:
                                     Name: {f.name} </b><br />
                                     Size: {f.size} 
-                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(file_public_id, f.id)}>Download</button>
+                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(file_public_id, f)}>Download</button>
                                 </p>
                             </div>
                         ))}
                     </div>
                 ))}
                 <button onClick={()=>console.log(available_files)}>click me</button>
+            </div>
+            <div>
+                Download Speed: {cur_down_speed}
             </div>
         </div>
     );
