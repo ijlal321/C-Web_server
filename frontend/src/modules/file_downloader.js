@@ -39,8 +39,9 @@ const download_speed_vs_resource_map = {
     5: {parallel_chunks:5, chunk_size: 1024*1024*5},
     10: {parallel_chunks:7, chunk_size: 1024*1024*7},
     25: {parallel_chunks:10, chunk_size: 1024*1024*10},
-    35: {parallel_chunks:12, chunk_size: 1024*1024*12},
+    35: {parallel_chunks:12, chunk_size: 1024*1024*13},
     50: {parallel_chunks:15, chunk_size: 1024*1024*15},
+    75: {parallel_chunks:17, chunk_size: 1024*1024*18},
     100: {parallel_chunks:20, chunk_size: 1024*1024*20},
     200: {parallel_chunks:40, chunk_size: 1024*1024*40},
 };
@@ -62,6 +63,10 @@ export function registerOnDownloadStatusUpdate(callback) {
     onDownloadStatusUpdate = callback;
 }
 
+let get_file_blob;
+export function register_get_file_blob(callback) {
+    get_file_blob = callback;
+}
 
 
 // ================== File DOWNLOAD FUNCTIONALITY =========== //
@@ -166,25 +171,6 @@ function request_next_chunk(owner_public_id, file_id){
 
 }
 
-function request_chunk_guard(owner_public_id, file_id){
-    // Check If we have resources to download a new chunk
-    if (!download_state[owner_public_id] || !download_state[owner_public_id][file_id]){
-        console.error("CHunk Download: File Not INItalized Properly");
-        return false;
-    }
-
-    if (download_state[owner_public_id][file_id].status != DownloadStatus.DOWNLOADING){
-        console.log("CHunk req not sent. Bcz file status not downloading");
-        return false;
-    }
-
-    if (download_state[owner_public_id][file_id].next_chunk_download_position > download_state[owner_public_id][file_id].size){
-        console.log("Invalid Next Chunk Download Poistion: Chunk Not Downloaded bcz outside size");
-        return false;
-    }
-    return true;
-}
-
 export function download_chunk(owner_public_id, file_id, start_pos, size){
     const url = `/download_chunk?owner_public_id=${encodeURIComponent(owner_public_id)}&file_id=${encodeURIComponent(file_id)}&start_pos=${encodeURIComponent(start_pos)}&size=${encodeURIComponent(size)}`;
     const xhr = new XMLHttpRequest();
@@ -278,6 +264,54 @@ function joinChunksToBlob(downloading_file) {
     }, 1000);
 }
 
+function request_chunk_guard(owner_public_id, file_id){
+    // Check If we have resources to download a new chunk
+    if (!download_state[owner_public_id] || !download_state[owner_public_id][file_id]){
+        console.error("CHunk Download: File Not INItalized Properly");
+        return false;
+    }
+
+    if (download_state[owner_public_id][file_id].status != DownloadStatus.DOWNLOADING){
+        console.log("CHunk req not sent. Bcz file status not downloading");
+        return false;
+    }
+
+    if (download_state[owner_public_id][file_id].next_chunk_download_position > download_state[owner_public_id][file_id].size){
+        console.log("Invalid Next Chunk Download Poistion: Chunk Not Downloaded bcz outside size");
+        return false;
+    }
+    return true;
+}
+
+
+// ========= FILE UPLOAD FUNCTIONALITY ============ //
+
+export function upload_chunk(owner_public_id, file_id, start_pos, size){        
+    if (!get_file_blob){
+        console.error("Client Logic Error: get_file_blob not set");
+        return;
+    }
+    const blob = get_file_blob(owner_public_id, file_id, start_pos, size);
+    if (!blob){
+        return;
+    }
+    const url = `/upload_chunk?owner_public_id=${encodeURIComponent(owner_public_id)}&file_id=${encodeURIComponent(file_id)}&start_pos=${encodeURIComponent(start_pos)}&size=${encodeURIComponent(size)}`;
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream'
+        },
+        body: blob
+    }).then(resp => {
+        if (!resp.ok) {
+            console.error('Chunk Upload Error. Response from http failed');
+            return;
+        };
+        console.log('Chunk uploaded Successully');
+    }).catch(err => {
+        console.error('Chunk upload error: ');
+    });
+}
 
 // ======= SPEED CALCULATOR (sEND TO uTILS lATER) ============ //
 

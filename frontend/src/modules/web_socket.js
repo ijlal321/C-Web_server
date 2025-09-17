@@ -132,6 +132,7 @@ function handle_message(msg){
             ws_add_available_files(data);
             break;
         case WsOPCodes.SERVER_UPLOAD_CHUNK:
+            ws_upload_chunk(data)
             break;
         case WsOPCodes.SERVER_CHUNK_READY:
             ws_download_chunk(data);
@@ -218,6 +219,17 @@ function ws_download_chunk(data){
         data.start_pos,
         data.size
     );
+}
+
+function ws_upload_chunk(data){
+    console.log("Server is Asking to Download CHunk. Functionality We Have Not Implemented Yet");
+    const {owner_public_id, file_id, start_pos, size} = data;
+    if (!owner_public_id == null || file_id == null || start_pos == null || size == null){
+        console.error("Chunk Upload Error: Invalid Or Inccomplete Data");
+        return;
+    }
+
+    file_downloader.upload_chunk(owner_public_id, file_id, start_pos, size);
 }
 
 // =====================  WS Helper FN ============ //

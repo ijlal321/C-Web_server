@@ -26,8 +26,10 @@
 
 xxx. cleanup of chunks in server. full cleanup after x seconds
 xxx. send ack on both sides
-
-
+xxx. check new file if exist. main issue. new file comes. clientb ask all files. server send them from UI. NOw during this time, if someone also sent something. then it would have same file from UI + itself. kinda issue here.
+    fix: save file by file id, or array + check each file.
+    fix-better: when sending all files, only then check for duplicates.
+        
 
 todo: 
 vite.config.js -> remove proxy
@@ -35,3 +37,4 @@ app.jsx        -> approved must be false by default
 
 should we do:
 1. upload folder possible frombrowser, but caveats. we need to handle it anyways due to app. (later)
+

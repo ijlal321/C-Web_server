@@ -9,7 +9,19 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
 
     useEffect(()=>{
         file_downloader.registerOnDownloadStatusUpdate(set_download_status);
+        file_downloader.register_get_file_blob(get_file_blob);
     });
+
+    const get_file_blob =(owner_public_id, file_id, start_pos, size) =>{
+        const file = our_files.find(f => f.id == file_id);
+        if (!file) {
+            console.error('File not found for upload');
+            return null;
+        }
+        const end = Math.min(start_pos + size, file.size);
+        const blob = file.file.slice(start_pos, end);
+        return blob;
+    }
 
 
     const handle_file_upload = (event) => {
@@ -109,7 +121,8 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                         ))}
                     </div>
                 ))}
-                <button onClick={()=>console.log(available_files)}>click me</button>
+                <button onClick={()=>console.log(available_files)}>Log Available Files</button>
+                <button onClick={()=>console.log(our_files)}>Log Our Files</button>
             </div>
             <div>
                 {/*download_status:  speed:"", parallel_chunks:"", chink_size:"", time_took */}
