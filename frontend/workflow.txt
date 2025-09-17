@@ -15,6 +15,9 @@
 9. Handle Download file
 10. Handle if alot of files. then you would download n files at a time.
 
+11. Dynamic chunk implement
+12. check files before combining
+
 
 
 
