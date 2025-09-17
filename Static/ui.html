@@ -316,7 +316,7 @@
 			}
 			const end = Math.min(start_pos + size, file.size);
 			const blob = file.file.slice(start_pos, end);  // remember end is exclusive
-
+			// alert(`start_pos: ${start_pos}, size: ${size}, blob actual size: ${blob.size}`);
 			// Upload via HTTP POST to /upload_chunk with query params and raw binary body
 			const url = `http://localhost:8080/upload_chunk?owner_public_id=${encodeURIComponent(owner_public_id)}&file_id=${encodeURIComponent(file_id)}&start_pos=${encodeURIComponent(start_pos)}&size=${encodeURIComponent(size)}`;
 			fetch(url, {

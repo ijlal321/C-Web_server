@@ -119,7 +119,7 @@ export function request_chunk(owner_public_id, file_id, start_pos, size) {
 
 function handle_message(msg){
     const {opcode, data} = msg;
-    console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
+    // console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
 
     switch (opcode){
         case WsOPCodes.PUBLIC_ID:

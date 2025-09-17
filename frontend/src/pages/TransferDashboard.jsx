@@ -5,10 +5,10 @@ import * as file_downloader from "../modules/file_downloader.js"
 
 const TransferDashboard = ({our_files, set_our_files, available_files, set_available_files}) => {
     let fileIdCounter = 1; // for assigning ID to files.
-    const [cur_down_speed, set_cur_down_speed] = useState(0);
+    const [download_status, set_download_status] = useState({speed:"NA", parallel_chunks:"", chink_size:"", time_took:0});
 
     useEffect(()=>{
-        file_downloader.registerOnDownloadSpeedUpdate(set_cur_down_speed);
+        file_downloader.registerOnDownloadStatusUpdate(set_download_status);
     });
 
 
@@ -112,7 +112,11 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                 <button onClick={()=>console.log(available_files)}>click me</button>
             </div>
             <div>
-                Download Speed: {cur_down_speed}
+                {/*download_status:  speed:"", parallel_chunks:"", chink_size:"", time_took */}
+                Download_SPeed: {download_status.speed ? download_status.speed: "0 B/s"} <br/>
+                parallel_chunks: {download_status.parallel_chunks ? download_status.parallel_chunks: "N/A"} <br/>
+                chink_size: {download_status.chink_size ? download_status.chink_size: "N/A"} <br/>
+                File Download Time: {download_status.time_took ? download_status.time_took: "N/A"} <br/>
             </div>
         </div>
     );

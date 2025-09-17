@@ -1,9 +1,8 @@
 import * as web_socket from "./web_socket.js"
 
 // ============= GLOBAL VARIABLES ================= //
-let cur_download_speed = 0;  // tracks current download speed
 let  bytes_loaded_this_sec = 0; // Used to track how much total bytes loaded this second. [For Tracking Speed]
-let available_download_resource = {parallel_chunks:20, chunk_size: 1024*1024*20}; // 2, 1MB
+let available_download_resource = {parallel_chunks:7, chunk_size: 1024*1024*7}; // 2, 1MB
 
 const MAX_CONCURRENT_FILE_DOWNLOADS = 3;
 let activeFileDownloads = 0; // unused for now // step 10
@@ -15,6 +14,9 @@ Format of a download state for a file is
 {
     public_id:{
         file_id1:{
+            name,
+            start_time,
+            end_time,
             total_size,
             bytes_downloaded,
             activeChunkCount,
@@ -32,9 +34,9 @@ Format of a download state for a file is
 
 // round cur_speed to upper MB. Then compare with map
 const download_speed_vs_resource_map = {
-    0.5: {parallel_chunks:2, chunk_size: 1024*1024*0.5},
-    1: {parallel_chunks:3, chunk_size: 1024*1024*2},
-    3: {parallel_chunks:4, chunk_size: 1024*1024*4},
+    1: {parallel_chunks:2, chunk_size: 1024*1024*0.5},
+    4: {parallel_chunks:3, chunk_size: 1024*1024*2},
+    20: {parallel_chunks:4, chunk_size: 1024*1024*4},
     5: {parallel_chunks:5, chunk_size: 1024*1024*5},
     10: {parallel_chunks:7, chunk_size: 1024*1024*7},
     25: {parallel_chunks:10, chunk_size: 1024*1024*10},
@@ -54,9 +56,9 @@ const DownloadStatus = Object.freeze({
 
 // ========== Register callback functions for WebSocket events === //
 // ========== Function naming format: register...(Callback) ============= //
-let onDownloadSpeedUpdate;
-export function registerOnDownloadSpeedUpdate(callback) {
-    onDownloadSpeedUpdate = callback;
+let onDownloadStatusUpdate;
+export function registerOnDownloadStatusUpdate(callback) {
+    onDownloadStatusUpdate = callback;
 }
 
 
@@ -66,16 +68,16 @@ export function registerOnDownloadSpeedUpdate(callback) {
 
 export function start_download_file(owner_public_id, file){
     // Guard:  callback fn exists
-    if (!onDownloadSpeedUpdate){
+    if (!onDownloadStatusUpdate){
         console.log("Client Logic Error: Callback Function Not Loaded Yet");
         return;
     }
 
     // Guard: check if file exists
-    if (download_state[owner_public_id] && download_state[owner_public_id][file.id]){
-        console.log("File ALready Downloading");
-        return;
-    }
+    // if (download_state[owner_public_id] && download_state[owner_public_id][file.id]){
+    //     console.log("File ALready Downloading");
+    //     return;
+    // }
     // Guard
     if (!download_state[owner_public_id]){
         download_state[owner_public_id] = {};
@@ -84,6 +86,8 @@ export function start_download_file(owner_public_id, file){
     // Create Download State
     download_state[owner_public_id][file.id] = {
         total_size: file.size,
+        name: file.name,
+        start_time: Date.now(),
         bytes_downloaded: 0,
         next_chunk_download_position: 0,
         status: DownloadStatus.PENDING,
@@ -113,16 +117,14 @@ function allocate_chunk_resource_smartly(owner_public_id, file_id){
     
     // check if we can give it more chunk
     const max_available_chunks_per_file = Math.ceil(available_download_resource.parallel_chunks / activeFileDownloads); // Rounding above make sure it alteast gets started.
-    if (downloading_file.activeChunkCount >= max_available_chunks_per_file){
-        // no more chunks can be allocated. Just return.
-        return;
+    while (downloading_file.activeChunkCount < max_available_chunks_per_file){        
+        // allocate 1 more chunk
+        downloading_file.activeChunkCount += 1;
+        // console.log("File Before sending to rquest chunk: ", downloading_file);
+        request_next_chunk(owner_public_id, file_id);
     }
-
-    // allocate 1 more chunk
-    downloading_file.activeChunkCount += 1;
-    // console.log("File Before sending to rquest chunk: ", downloading_file);
-    request_next_chunk(owner_public_id, file_id);
-    
+    // no more chunks can be allocated. Just return.
+    return;
 }
 
 
@@ -140,15 +142,15 @@ function request_next_chunk(owner_public_id, file_id){
     const start_pos = downloading_file.next_chunk_download_position;
 
     if (start_pos == -1){
-        // meaning all chunks downloaded sequentially, but there was some in between that was not downloaded. find and download that one.
+        // Check if any piece remains, else done
         // Todo
-        console.error("TODO: SOme CHunks Not Got Downloaded, all else done. Reached -1 start pos");
+        // console.error("TODO: SOme CHunks Not Got Downloaded, all else done. Reached -1 start pos");
         return;
     }
 
     // find size of chunk
     const size = Math.min(available_download_resource.chunk_size, downloading_file.total_size - start_pos);
-    if (downloading_file.total_size < start_pos + size){
+    if (downloading_file.total_size <= start_pos + size){
         downloading_file.next_chunk_download_position = -1;
     }else{
         downloading_file.next_chunk_download_position += size;
@@ -186,7 +188,7 @@ export function download_chunk(owner_public_id, file_id, start_pos, size){
     const url = `/download_chunk?owner_public_id=${encodeURIComponent(owner_public_id)}&file_id=${encodeURIComponent(file_id)}&start_pos=${encodeURIComponent(start_pos)}&size=${encodeURIComponent(size)}`;
     const xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.responseType = 'blob';
+    xhr.responseType = "arraybuffer";
 
     // Progress callback (fires repeatedly as data arrives)
     let lastLoaded = 0; // Track previous loaded value. Used to find how much data load this event.
@@ -201,16 +203,17 @@ export function download_chunk(owner_public_id, file_id, start_pos, size){
     xhr.onload = function() {
         if (xhr.status === 200) {
             const blob = xhr.response;
+
             store_downloaded_chunk_blob(owner_public_id, file_id, start_pos, size, blob);
             // console.log("Chunk downloaded:", { start_pos, size, blob });
         } else {
             console.error(`Error downloading chunk: HTTP status ${xhr.status}`);
-            download_state[public_id][file_id].chunks_by_start_pos[start_pos].status = DownloadStatus.ERROR;
+            download_state[owner_public_id][file_id].chunks_by_start_pos[start_pos].status = DownloadStatus.ERROR;
         }
     };
 
     xhr.onerror = function() {
-        download_state[public_id][file_id].chunks_by_start_pos[start_pos].status = DownloadStatus.ERROR;
+        download_state[owner_public_id][file_id].chunks_by_start_pos[start_pos].status = DownloadStatus.ERROR;
         console.error("Network error while downloading chunk.");
     };
 
@@ -224,11 +227,17 @@ function store_downloaded_chunk_blob(owner_public_id, file_id, start_pos, size, 
     downloading_file.chunks_by_start_pos[start_pos].data = blob;
     downloading_file.chunks_by_start_pos[start_pos].status = DownloadStatus.DOWNLOADED;
 
-    console.log("Chunk Downloaded. State After Downloading: ", downloading_file);
+    // console.log("Chunk Downloaded. State After Downloading: ", downloading_file);
+
+    downloading_file.end_time = Date.now();
+    const time_in_sec = ((downloading_file.end_time - downloading_file.start_time) / 1000).toFixed(2);
+    onDownloadStatusUpdate((prev) => ({ ...prev, time_took: time_in_sec }));
 
     if (downloading_file.bytes_downloaded == downloading_file.total_size){
         // full file has been downloaded
-        console.log("FULL FILE DOWNLOADED");
+        console.log("FULL FILE DOWNLOADED. File: ", downloading_file);
+        console.log("total chunks: ", Object.keys(downloading_file.chunks_by_start_pos).length);
+        // joinChunksToBlob(downloading_file); // NO UNNECESSARY DOWNLOADING
         if (queuedFileDownloads.length != 0){
             const next_file_to_download = queuedFileDownloads.shift();
             allocate_chunk_resource_smartly(next_file_to_download[0], next_file_to_download[1]);
@@ -238,3 +247,56 @@ function store_downloaded_chunk_blob(owner_public_id, file_id, start_pos, size, 
     // send req to download next chunk
     allocate_chunk_resource_smartly(owner_public_id, file_id);
 }
+
+function joinChunksToBlob(downloading_file) {
+    const chunkMap = downloading_file.chunks_by_start_pos;
+
+    // Get all start positions and sort them numerically
+    const sortedStartPositions = Object.keys(chunkMap)
+        .map(Number)
+        .sort((a, b) => a - b);
+
+    // Collect chunk .data in order
+    const blobParts = sortedStartPositions.map(start => {
+        return chunkMap[start].data;
+    });
+
+    // Combine all chunks into one Blob
+    const finalBlob = new Blob(blobParts, { type: 'application/octet-stream' });
+
+    // Trigger browser download
+    const url = URL.createObjectURL(finalBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = downloading_file.name; // You can set a better name if available
+    document.body.appendChild(a);
+    a.click();  
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 1000);
+}
+
+
+// ======= SPEED CALCULATOR (sEND TO uTILS lATER) ============ //
+
+setInterval(() => {
+    if (!onDownloadStatusUpdate) return; 
+    // Calculate speed in bytes/sec, show as KB/s or MB/s
+    let speed = bytes_loaded_this_sec / 1;
+    bytes_loaded_this_sec = 0;
+    let speedStr;
+    if (speed > 1024 * 1024) {
+        speedStr = (speed / (1024 * 1024)).toFixed(2) + ' MB/s';
+    } else if (speed > 1024) {
+        speedStr = (speed / 1024).toFixed(2) + ' KB/s';
+    } else {
+        speedStr = speed + ' B/s';
+    }
+    const cur_download_speed = speedStr;
+    if (speed != 0){
+        onDownloadStatusUpdate((prev)=> ({...prev, speed: cur_download_speed}));
+    }
+
+}, 1000);
+

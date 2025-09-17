@@ -1,6 +1,7 @@
 #include "http_server.h"
 #include "config.h"
 #include <memory.h>
+#include <stdio.h>
 #include "civetweb.h"
 
 /**
@@ -175,7 +176,6 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 }
 
 static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
-    printf("http req send for downloading chunk\n");
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
 
