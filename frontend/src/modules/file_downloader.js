@@ -62,7 +62,7 @@ export function registerOnDownloadSpeedUpdate(callback) {
 // ================== File DOWNLOAD FUNCTIONALITY =========== //
 
 
-export function start_download_file(public_id, file){
+export function start_download_file(owner_public_id, file){
     // Guard:  callback fn exists
     if (!onDownloadSpeedUpdate){
         console.log("Client Logic Error: Callback Function Not Loaded Yet");
@@ -70,16 +70,16 @@ export function start_download_file(public_id, file){
     }
 
     // check if file exists
-    if (download_state[public_id] && download_state[public_id][file.id]){
+    if (download_state[owner_public_id] && download_state[owner_public_id][file.id]){
         console.log("File ALready Downloading");
         return;
     }
 
-    if (!download_state[public_id]){
-        download_state[public_id] = {};
+    if (!download_state[owner_public_id]){
+        download_state[owner_public_id] = {};
     }
 
-    download_state[public_id][file.id] = {
+    download_state[owner_public_id][file.id] = {
         total_size: file.size,
         bytes_downloaded: 0,
         next_chunk_download_position: 0,
@@ -88,15 +88,15 @@ export function start_download_file(public_id, file){
     }
 
     for(let i = 0 ; i < available_download_resource.parallel_chunks; i++ ){
-        request_next_chunk(public_id, file.id);
+        request_next_chunk(owner_public_id, file.id);
     }
 }
 
-function request_next_chunk(public_id, file_id){
-    if (request_chunk_guard(public_id, file_id) == false) return;
+function request_next_chunk(owner_public_id, file_id){
+    if (request_chunk_guard(owner_public_id, file_id) == false) return;
 
     // set new chunk variables
-    const downloading_file = download_state[public_id][file_id];
+    const downloading_file = download_state[owner_public_id][file_id];
     const start_pos = downloading_file.next_chunk_download_position;
     const size = Math.min(available_download_resource.chunk_size, downloading_file.total_size - start_pos + 1);
     if (downloading_file.total_size < start_pos + size){
@@ -111,7 +111,7 @@ function request_next_chunk(public_id, file_id){
     )
 
     // req websocket to request message
-    web_socket.request_chunk(public_id, file_id, start_pos, size);
+    web_socket.request_chunk(owner_public_id, file_id, start_pos, size);
 
 }
 

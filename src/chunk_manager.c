@@ -4,9 +4,9 @@
 
 // ======= HELPER FUNCTIONS HEADER ======== //
 
-static int parse_chunk_request(const cJSON *ws_data, int *sender_public_id, int *public_id, int *file_id, int *chunk_id);
+static int parse_chunk_request(const cJSON *ws_data, int *sender_public_id, int *public_id, int *file_id, size_t *start_pos, size_t * size);
 static struct mg_connection *find_target_socket(struct ConnectionManager *mgr, int public_id);
-static void send_chunk_request(struct mg_connection *conn, int opcode, int public_id, int file_id, int chunk_id);
+static void send_chunk_request(struct mg_connection *conn, int opcode, int public_id, int file_id, size_t start_pos, size_t size);
 
 
 // ==================================  
@@ -21,20 +21,22 @@ void chunk_manager_init(struct ChunkManager * chunk_mgr){
 void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
-    // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
+    // {opcode: 12, data: {sender_public_id:_, file_public_id:_ , file_id: _, start_pos, size}}
     
     // Get All Fields
-    int sender_public_id, public_id, file_id, chunk_id;
-    if (parse_chunk_request(ws_data, &sender_public_id, &public_id, &file_id, &chunk_id) != 0) {
+    int sender_public_id, owner_public_id, file_id;
+    size_t start_pos, size;
+    if (parse_chunk_request(ws_data, &sender_public_id, &owner_public_id, &file_id, &start_pos, &size) != 0) {
         printf("Invalid chunk request: missing fields.\n");
         return;
     }
 
     // create key to find chunk
     struct ChunkKey chunk_key = {0}; // very important zero out key. bcz uthash will cmp full struct to struct. may cause errors.
-    chunk_key.public_id = public_id;
+    chunk_key.public_id = owner_public_id;
     chunk_key.file_id = file_id;
-    chunk_key.chunk_id = chunk_id;
+    chunk_key.start_pos = start_pos;
+    chunk_key.size = size;
 
     pthread_rwlock_wrlock(&chunk_mgr->rw_lock);
 
@@ -46,11 +48,11 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
     if (!cur_chunk){
         
         // Get Owner Connection varaible
-        struct mg_connection *target_socket = find_target_socket(connection_mgr, public_id);
+        struct mg_connection *target_socket = find_target_socket(connection_mgr, owner_public_id);
         if (!target_socket) goto end;
 
         // Create Chunk
-        struct FileChunk * new_chunk = chunk_create(public_id, file_id, chunk_id);
+        struct FileChunk * new_chunk = chunk_create(owner_public_id, file_id, start_pos, size);
         if (new_chunk == NULL) goto end;
 
         // add sender to chunk
@@ -60,7 +62,7 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
         HASH_ADD(hh, chunk_mgr->chunks, chunk_key, sizeof(struct ChunkKey), new_chunk);
         
         // send message to owner to send data
-        send_chunk_request(target_socket, SERVER_UPLOAD_CHUNK, public_id, file_id, chunk_id);
+        send_chunk_request(target_socket, SERVER_UPLOAD_CHUNK, owner_public_id, file_id, start_pos, size);
         goto end;
     
     }
@@ -71,7 +73,7 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
     add_client_to_chunk(cur_chunk, sender_public_id);
 
     if (cur_chunk->is_downloaded){   // if chunk fully available then download, else wait.
-        send_chunk_request(conn, SERVER_CHUNK_READY, public_id, file_id, chunk_id);
+        send_chunk_request(conn, SERVER_CHUNK_READY, owner_public_id, file_id, start_pos, size);
     }
 
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
@@ -81,7 +83,7 @@ end:
 }
 
 
-//cheat one
+//cheat one  // errors, need to be in same format as original
 void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
@@ -94,7 +96,7 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
     struct ChunkKey chunk_key = {0}; // very important zero out key. bcz uthash will cmp full struct to struct. may cause errors.
     chunk_key.public_id = public_id;
     chunk_key.file_id = file_id;
-    chunk_key.chunk_id = chunk_id;
+    // chunk_key.chunk_id = chunk_id;
 
     pthread_rwlock_wrlock(&chunk_mgr->rw_lock);
     // hashfind from chunk_mgr->chunks on chunk_key
@@ -103,7 +105,7 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
 
     // if chunk dont exist
     if (cur_chunk == NULL){
-        struct FileChunk * new_chunk = chunk_create(public_id, file_id, chunk_id);
+        struct FileChunk * new_chunk = chunk_create(public_id, file_id, chunk_id, chunk_id);
         add_client_to_chunk(new_chunk, sender_public_id);
         // For testing: open file, read chunk, malloc and assign to new_chunk->data
         const char *test_path = "D:/downloads/rar_file.rar";
@@ -168,7 +170,7 @@ void add_client_to_chunk(struct FileChunk * new_chunk, int sender_public_id){
     new_chunk->client_count ++;
 }
 
-struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id){
+struct FileChunk * chunk_create(int public_id, int file_id, size_t start_pos, size_t size){
     struct FileChunk * new_chunk = calloc(1, sizeof(struct FileChunk));
     if (new_chunk == NULL){
         printf("Failed to Allocate Space for new CHUNK\n");
@@ -176,7 +178,8 @@ struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id){
     }
     new_chunk->chunk_key.public_id = public_id;
     new_chunk->chunk_key.file_id = file_id;
-    new_chunk->chunk_key.chunk_id = chunk_id;
+    new_chunk->chunk_key.start_pos = start_pos;
+    new_chunk->chunk_key.size = size;
     new_chunk->size = 0; // todo ? what to do here. should i leave it like this ?
     new_chunk->is_downloaded = 0;
     pthread_rwlock_init(&new_chunk->rw_lock, NULL);
@@ -188,13 +191,14 @@ struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id){
 // =========== HELPER FUNCTIONS ============= //
 
 static int parse_chunk_request(const cJSON *ws_data,
-                               int *sender_public_id, int *public_id,
-                               int *file_id, int *chunk_id)
+                               int *sender_public_id, int *owner_public_id,
+                               int *file_id, size_t *start_pos, size_t *size)
 {
     if (j2d_get_int(ws_data, "sender_public_id", sender_public_id) != 0 ||
-        j2d_get_int(ws_data, "public_id", public_id) != 0 ||
+        j2d_get_int(ws_data, "owner_public_id", owner_public_id) != 0 ||
         j2d_get_int(ws_data, "file_id", file_id) != 0 ||
-        j2d_get_int(ws_data, "chunk_id", chunk_id) != 0)
+        j2d_get_size_t(ws_data, "start_pos", start_pos) != 0 ||
+        j2d_get_size_t(ws_data, "size", size) != 0)
     {
         return -1; // missing field(s)
     }
@@ -218,12 +222,12 @@ static struct mg_connection *find_target_socket(struct ConnectionManager *mgr, i
 }
 
 static void send_chunk_request(struct mg_connection *conn,
-                               int opcode, int public_id, int file_id, int chunk_id)
+                               int opcode, int owner_public_id, int file_id, size_t start_pos, size_t size)
 {
-    char buffer[128];
+    char buffer[256];
     int n = snprintf(buffer, sizeof(buffer),
-        "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}",
-        opcode, public_id, file_id, chunk_id);
+        "{\"opcode\":%d, \"data\":{\"owner_public_id\":%d, \"file_id\":%d, \"start_pos\":%zu , \"size\":%zu}}",
+        opcode, owner_public_id, file_id, start_pos, size);
 
     if (n < 0 || n >= (int)sizeof(buffer)) {
         printf("Error: JSON message truncated.\n");

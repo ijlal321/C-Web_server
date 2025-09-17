@@ -59,8 +59,13 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
         return;
     }
 
-    const handle_file_download = (file_public_id, file) => {
-        file_downloader.start_download_file(file_public_id, file);
+    const handle_file_download = (owner_public_id, file) => {
+        const int_owner_public_id = parseInt(owner_public_id);
+        if (isNaN(int_owner_public_id)) {
+            console.error("FIle Owner Public Id is not a int, which should not have happened");
+            return;
+        }
+        file_downloader.start_download_file(int_owner_public_id, file);
     }
 
 
@@ -88,17 +93,17 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
             <div style={{ border: "dotted black 2px", borderRadius: "10px", padding: "10px", margin: "20px" }}> {/* upload file section */}
                 <h2>Available Files</h2>
                 {/* show Public Available files */}
-                {Object.entries(available_files).map(([file_public_id, files], idx) => (
+                {Object.entries(available_files).map(([owner_public_id, files], idx) => (
                     // Show Available Public ID 
                     <div key={idx} style={{border:"solid black 1px", borderRadius:"5px", padding:"10px", margin:"15px"}}>
-                        <b>Public:ID: {file_public_id}</b> <br/>
+                        <b>Public:ID: {owner_public_id}</b> <br/>
                         {/* Show Files inside each Public ID */}
                         Files: {files.map((f, idx) => (
                             <div key={idx} style={{margin:"10px"}}>
                                 <p><b>{idx+1}:
                                     Name: {f.name} </b><br />
                                     Size: {f.size} 
-                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(file_public_id, f)}>Download</button>
+                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(owner_public_id, f)}>Download</button>
                                 </p>
                             </div>
                         ))}

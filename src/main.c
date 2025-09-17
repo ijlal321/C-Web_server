@@ -19,7 +19,9 @@ int main(void) {
     if (w == NULL) {
         return 1;
     }
+    // while(1){
 
+    // };
     // Run the webview
     webview_run(w); // Must run on main thread
 

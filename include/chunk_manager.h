@@ -15,7 +15,8 @@ struct PublicIdEntry {
 struct ChunkKey{
     int public_id;
     int file_id;
-    int chunk_id;
+    size_t start_pos;
+    size_t size;
 };
 
 struct FileChunk {
@@ -57,6 +58,6 @@ void chunk_client_register();
 // ofc if space available in pool.
 void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn);
 void add_client_to_chunk(struct FileChunk * new_chunk, int sender_public_id);
-struct FileChunk * chunk_create(int public_id, int file_id, int chunk_id);
+struct FileChunk * chunk_create(int public_id, int file_id, size_t start_pos, size_t size);
 
 #endif

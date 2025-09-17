@@ -6,6 +6,7 @@
 
 #define DOCUMENT_ROOT "./Static/"
 #define HTML_CLIENT_FILE "./Static/chat2.html"
+// #define HTML_CLIENT_FILE "./Static/ui.html"
 
 // #define MAX_WEB_SOCKET_CLIENTS_DISCOVER 20 // max clients to discover
 #define MAX_WEB_SOCKET_CLIENTS 20

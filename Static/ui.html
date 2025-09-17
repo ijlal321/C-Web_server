@@ -235,7 +235,7 @@
 					const msg = JSON.parse(event.data);
 					handleWSMessage(msg);
 				} catch (e) {
-					showStatus('Invalid message received', true);
+					showStatus('Invalid message received: ' + e, true);
 				}
 			};
 			ws.onclose = function() {
@@ -291,8 +291,8 @@
 					break;
 				// Handle chunk upload request (opcode 13)
 				case 13:
-					if (msg.data && typeof msg.data.public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.chunk_id !== 'undefined') {
-						uploadChunkFromUiFiles(msg.data.public_id, msg.data.file_id, msg.data.chunk_id);
+					if (msg.data && typeof msg.data.owner_public_id !== 'undefined' && typeof msg.data.file_id !== 'undefined' && typeof msg.data.start_pos !== 'undefined' && typeof msg.data.size !== 'undefined') {
+						uploadChunkFromUiFiles(msg.data.owner_public_id, msg.data.file_id, msg.data.start_pos, msg.data.size);
 					}
 					break;
 				case 14:
@@ -306,18 +306,19 @@
 			}
 		}
 		// Upload a chunk from the admin's dropbox files
-		function uploadChunkFromUiFiles(public_id, file_id, chunk_id) {
+		function uploadChunkFromUiFiles(owner_public_id, file_id, start_pos, size) {
+			// Todo: owner public id must be 0 here. bcz 0 is always UI app. For Future.
 			// Find the file in uiFilesArr
-			const file = uiFilesArr.find(f => f.id === file_id);
+			const file = uiFilesArr.find(f => f.id == file_id);
 			if (!file || !file.file) {
 				showStatus('File not found for upload', true);
 				return;
 			}
-			const start = chunk_id * CHUNK_SIZE;
-			const end = Math.min(start + CHUNK_SIZE, file.size);
-			const blob = file.file.slice(start, end);
+			const end = Math.min(start_pos + size, file.size);
+			const blob = file.file.slice(start_pos, end);  // remember end is exclusive
+
 			// Upload via HTTP POST to /upload_chunk with query params and raw binary body
-			const url = `http://localhost:8080/upload_chunk?public_id=${encodeURIComponent(public_id)}&file_id=${encodeURIComponent(file_id)}&chunk_id=${encodeURIComponent(chunk_id)}`;
+			const url = `http://localhost:8080/upload_chunk?owner_public_id=${encodeURIComponent(owner_public_id)}&file_id=${encodeURIComponent(file_id)}&start_pos=${encodeURIComponent(start_pos)}&size=${encodeURIComponent(size)}`;
 			fetch(url, {
 				method: 'POST',
 				headers: {
@@ -325,7 +326,10 @@
 				},
 				body: blob
 			}).then(resp => {
-				if (!resp.ok) throw new Error('Upload failed');
+				if (!resp.ok) {
+					showStatus('Chunk Upload Error. Response from http failed', true);
+					return;
+				};
 				showStatus('Chunk uploaded', false);
 			}).catch(err => {
 				showStatus('Chunk upload error: ' + err, true);

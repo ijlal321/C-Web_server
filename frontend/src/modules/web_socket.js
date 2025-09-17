@@ -98,7 +98,7 @@ export function remove_file_from_server(file_id){
     return true;
 }
 
-export function request_chunk(public_id, file_id, start_pos, size) {
+export function request_chunk(owner_public_id, file_id, start_pos, size) {
     if (is_ws_ready_to_send_msg() == false || ws_our_public_id == -1) {
         console.error("websocket not ready to send messages, fix");
         return;
@@ -107,7 +107,7 @@ export function request_chunk(public_id, file_id, start_pos, size) {
         opcode: WsOPCodes.REQUEST_CHUNK,
         data: {
             sender_public_id: ws_our_public_id,
-            file_public_id: public_id,
+            owner_public_id: owner_public_id,
             file_id: file_id,
             start_pos,
             size,

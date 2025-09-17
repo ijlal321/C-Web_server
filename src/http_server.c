@@ -67,26 +67,31 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
 
 
-    char buf[64];
     char *chunk_data = NULL;
-    int public_id = -1, file_id = -1, chunk_id = -1;
+    char buf[128];
+    int owner_public_id = -1, file_id = -1;
+    size_t start_pos = 0, size = 0;
 
     const struct mg_request_info *ri = mg_get_request_info(conn);
     const char *query = ri->query_string;
-    // Extract query parameters: public_id, file_id, chunk_id
+
+    // Extract query parameters: owner_public_id, file_id, start_pos, size
     if (query) {
-        if (mg_get_var(query, strlen(query), "public_id", buf, sizeof(buf)) > 0) {
-            public_id = atoi(buf);
+        if (mg_get_var(query, strlen(query), "owner_public_id", buf, sizeof(buf)) > 0) {
+            owner_public_id = atoi(buf);
         }
         if (mg_get_var(query, strlen(query), "file_id", buf, sizeof(buf)) > 0) {
             file_id = atoi(buf);
         }
-        if (mg_get_var(query, strlen(query), "chunk_id", buf, sizeof(buf)) > 0) {
-            chunk_id = atoi(buf);
+        if (mg_get_var(query, strlen(query), "start_pos", buf, sizeof(buf)) > 0) {
+            start_pos = (size_t) strtoull(buf, NULL, 10);
+        }
+        if (mg_get_var(query, strlen(query), "size", buf, sizeof(buf)) > 0) {
+            size = (size_t) strtoull(buf, NULL, 10);
         }
     }
-    if (public_id < 0 || file_id < 0 || chunk_id < 0) {
-        printf("invalid query parameters \n");
+    if (owner_public_id < 0 || file_id < 0){
+        printf("invalid download query parameters \n");
         mg_send_http_error(conn, 400, "%s", "Missing or invalid query parameters");
         return 400;
     }
@@ -94,8 +99,8 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
     // Allocate buffer for chunk data
     long content_length = ri->content_length;
-    if (content_length <= 0 || content_length > CHUNK_SIZE) { // 1MB max
-        printf("invalid chunk size %d\n", content_length);
+    if (content_length != size) {
+        printf("invalid chunk size %ld\n", content_length);
         mg_send_http_error(conn, 400, "%s", "Invalid content length");
         return 400;
     }
@@ -122,8 +127,14 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
     pthread_rwlock_wrlock(&chunk_mgr->rw_lock);
 
+    // Lookup chunk in memory
+    struct ChunkKey chunk_key = {0}; // very important zero out key. bcz uthash will cmp full struct to struct. may cause errors.
+    chunk_key.public_id = owner_public_id;
+    chunk_key.file_id = file_id;
+    chunk_key.start_pos = start_pos;
+    chunk_key.size = size;
+    
     // Store chunk in memory and notify clients (reuse previous logic)
-    struct ChunkKey chunk_key = {public_id, file_id, chunk_id};
     struct FileChunk * cur_chunk = NULL;
     HASH_FIND(hh, chunk_mgr->chunks, &chunk_key, sizeof(struct ChunkKey), cur_chunk);
     if (!cur_chunk) {
@@ -149,7 +160,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         }
         if (target_conn) {
             char buffer[300];
-            sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
+            sprintf(buffer, "{\"opcode\":%d, \"data\":{\"owner_public_id\":%d, \"file_id\":%d, \"start_pos\":%zu, \"size\":%zu}}", SERVER_CHUNK_READY, owner_public_id, file_id, start_pos, size);
             int write_res = mg_websocket_write(target_conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
             printf("Ready Signal Sent to Client %d with res: %d\n", entry->public_id, write_res);
         }
@@ -158,41 +169,51 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     pthread_rwlock_unlock(&chunk_mgr->rw_lock);
     mg_send_http_ok(conn, "text/plain", 2);
     mg_write(conn, "OK", 2);
-    printf("Chunk received and stored in memory (public_id=%d, file_id=%d, chunk_id=%d, size=%ld)\n", public_id, file_id, chunk_id, bytes_read);
+    printf("Chunk received and stored in memory (owner_public_id=%d, file_id=%d, start_pos=%d, size:%zu, bytes_read=%ld)\n", owner_public_id, file_id, start_pos, size, bytes_read);
     return 200;
 
 }
 
 static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
+    printf("http req send for downloading chunk\n");
     struct AppContext * app_ctx = (struct AppContext *)cbdata;
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
 
-    char buf[64];
-    int public_id = -1, file_id = -1, chunk_id = -1;
+    char buf[128];
+    int owner_public_id = -1, file_id = -1;
+    size_t start_pos = 0, size = 0;
 
     const struct mg_request_info *ri = mg_get_request_info(conn);
     const char *query = ri->query_string;
 
-    // Extract query parameters: public_id, file_id, chunk_id
+    // Extract query parameters: owner_public_id, file_id, start_pos, size
     if (query) {
-        if (mg_get_var(query, strlen(query), "public_id", buf, sizeof(buf)) > 0) {
-            public_id = atoi(buf);
+        if (mg_get_var(query, strlen(query), "owner_public_id", buf, sizeof(buf)) > 0) {
+            owner_public_id = atoi(buf);
         }
         if (mg_get_var(query, strlen(query), "file_id", buf, sizeof(buf)) > 0) {
             file_id = atoi(buf);
         }
-        if (mg_get_var(query, strlen(query), "chunk_id", buf, sizeof(buf)) > 0) {
-            chunk_id = atoi(buf);
+        if (mg_get_var(query, strlen(query), "start_pos", buf, sizeof(buf)) > 0) {
+            start_pos = (size_t) strtoull(buf, NULL, 10);
+        }
+        if (mg_get_var(query, strlen(query), "size", buf, sizeof(buf)) > 0) {
+            size = (size_t) strtoull(buf, NULL, 10);
         }
     }
-    if (public_id < 0 || file_id < 0 || chunk_id < 0) {
+    if (owner_public_id < 0 || file_id < 0){
         printf("invalid download query parameters \n");
         mg_send_http_error(conn, 400, "%s", "Missing or invalid query parameters");
         return 400;
     }
 
     // Lookup chunk in memory
-    struct ChunkKey chunk_key = {public_id, file_id, chunk_id};
+    struct ChunkKey chunk_key = {0}; // very important zero out key. bcz uthash will cmp full struct to struct. may cause errors.
+    chunk_key.public_id = owner_public_id;
+    chunk_key.file_id = file_id;
+    chunk_key.start_pos = start_pos;
+    chunk_key.size = size;
+    
     struct FileChunk * cur_chunk = NULL;
     HASH_FIND(hh, chunk_mgr->chunks, &chunk_key, sizeof(struct ChunkKey), cur_chunk);
     if (!cur_chunk || !cur_chunk->is_downloaded || !cur_chunk->data) {
@@ -206,7 +227,7 @@ static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
     mg_send_http_ok(conn, "application/octet-stream", cur_chunk->size);
     mg_write(conn, cur_chunk->data, cur_chunk->size);
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
-    printf("Chunk served (public_id=%d, file_id=%d, chunk_id=%d, size=%zu)\n", public_id, file_id, chunk_id, cur_chunk->size);
+    printf("Chunk served (owner_public_id=%d, file_id=%d, start_pos=%zu, size=%zu)\n", owner_public_id, file_id, start_pos, size);
     return 200;
 }
 
