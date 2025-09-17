@@ -336,7 +336,7 @@
 			});
 		}
 
-				// Listen for chunk ready (opcode 14) and download chunk
+		// Listen for chunk ready (opcode 14) and download chunk
 		function download_chunk(msg) {
 			const { public_id, file_id, chunk_id } = msg.data;
 			const fileKey = public_id + ':' + file_id;

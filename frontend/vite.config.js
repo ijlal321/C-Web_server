@@ -9,5 +9,6 @@ export default defineConfig({
   },
   server: {
     port: 4000,
+    host: true, // Allow access from other devices on the same network
   }
 })

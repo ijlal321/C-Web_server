@@ -1,7 +1,7 @@
 
 // =============== Imports  =============//
 import { WsOPCodes } from "./utils";
-
+import * as file_downloader from "./file_downloader.js";
 // ============= Global Vars - For Easier Access from other Fns  == //
 let ws_our_public_id = -1; // in deployment, better to make a shared state for easier access. this works too.
 
@@ -113,16 +113,6 @@ export function request_chunk(owner_public_id, file_id, start_pos, size) {
             size,
         }
     }));
-
-    // ws.send(JSON.stringify({
-    //     opcode: WsOPCodes.REQUEST_CHUNK,
-    //     data: {
-    //         sender_public_id: ws_our_public_id,
-    //         public_id: public_id,
-    //         file_id: file_id,
-    //         chunk_id: chunk_id
-    //     }
-    // }));
 }
 
 // ================== HANDLING WS Incomming MESSAGES ======================== //
@@ -144,6 +134,7 @@ function handle_message(msg){
         case WsOPCodes.SERVER_UPLOAD_CHUNK:
             break;
         case WsOPCodes.SERVER_CHUNK_READY:
+            ws_download_chunk(data);
             break;
         case WsOPCodes.UI_REMOVE_FILE:
             ws_remove_available_file(data);
@@ -215,6 +206,19 @@ function ws_remove_available_file(data){
     });
 }
 
+function ws_download_chunk(data){
+    const requiredKeys = ['owner_public_id', 'file_id', 'start_pos', 'size'];
+    if (!data || !requiredKeys.every(key => typeof data[key] !== 'undefined')) {
+        console.log("WS Download Chunk Ready: Incomplete or Invalid Fields");
+        return;
+    }
+    file_downloader.download_chunk(
+        data.owner_public_id,
+        data.file_id,
+        data.start_pos,
+        data.size
+    );
+}
 
 // =====================  WS Helper FN ============ //
 
