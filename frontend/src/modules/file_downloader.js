@@ -2,7 +2,7 @@ import * as web_socket from "./web_socket.js"
 
 // ============= GLOBAL VARIABLES ================= //
 let  bytes_loaded_this_sec = 0; // Used to track how much total bytes loaded this second. [For Tracking Speed]
-let available_download_resource = {parallel_chunks:7, chunk_size: 1024*1024*7}; // 2, 1MB
+let available_download_resource = {parallel_chunks:2, chunk_size: 1024*1024*0.5}; // 2, 1MB
 
 const MAX_CONCURRENT_FILE_DOWNLOADS = 3;
 let activeFileDownloads = 0; // unused for now // step 10
@@ -36,12 +36,13 @@ Format of a download state for a file is
 const download_speed_vs_resource_map = {
     1: {parallel_chunks:2, chunk_size: 1024*1024*0.5},
     4: {parallel_chunks:3, chunk_size: 1024*1024*2},
-    20: {parallel_chunks:4, chunk_size: 1024*1024*4},
     5: {parallel_chunks:5, chunk_size: 1024*1024*5},
     10: {parallel_chunks:7, chunk_size: 1024*1024*7},
     25: {parallel_chunks:10, chunk_size: 1024*1024*10},
+    35: {parallel_chunks:12, chunk_size: 1024*1024*12},
     50: {parallel_chunks:15, chunk_size: 1024*1024*15},
     100: {parallel_chunks:20, chunk_size: 1024*1024*20},
+    200: {parallel_chunks:40, chunk_size: 1024*1024*40},
 };
 
 const DownloadStatus = Object.freeze({
@@ -237,7 +238,7 @@ function store_downloaded_chunk_blob(owner_public_id, file_id, start_pos, size, 
         // full file has been downloaded
         console.log("FULL FILE DOWNLOADED. File: ", downloading_file);
         console.log("total chunks: ", Object.keys(downloading_file.chunks_by_start_pos).length);
-        // joinChunksToBlob(downloading_file); // NO UNNECESSARY DOWNLOADING
+        joinChunksToBlob(downloading_file); // NO UNNECESSARY DOWNLOADING
         if (queuedFileDownloads.length != 0){
             const next_file_to_download = queuedFileDownloads.shift();
             allocate_chunk_resource_smartly(next_file_to_download[0], next_file_to_download[1]);
@@ -280,6 +281,10 @@ function joinChunksToBlob(downloading_file) {
 
 // ======= SPEED CALCULATOR (sEND TO uTILS lATER) ============ //
 
+const sortedKeys = Object.keys(download_speed_vs_resource_map)
+    .map(Number)
+    .sort((a, b) => a - b);  // done once. Need for finding best resources given speed.
+    
 setInterval(() => {
     if (!onDownloadStatusUpdate) return; 
     // Calculate speed in bytes/sec, show as KB/s or MB/s
@@ -296,7 +301,24 @@ setInterval(() => {
     const cur_download_speed = speedStr;
     if (speed != 0){
         onDownloadStatusUpdate((prev)=> ({...prev, speed: cur_download_speed}));
+        const speedMBps = Math.ceil(speed / (1024*1024));
+        const new_resource = getResourceForSpeed(speedMBps);
+        console.log(new_resource);
+        console.log(`Speed: ${speed}, parallel_chunks: ${new_resource.parallel_chunks}, chunk size: ${new_resource.chunk_size}`);
+        available_download_resource = new_resource;
     }
 
 }, 1000);
+
+function getResourceForSpeed(speedMBps) {
+    for (let key of sortedKeys) {
+        if (speedMBps <= key) {
+            return download_speed_vs_resource_map[key];
+        }
+    }
+
+    // If speed is higher than all keys, return the max key's config
+    const maxKey = sortedKeys[sortedKeys.length - 1];
+    return download_speed_vs_resource_map[maxKey];
+}
 

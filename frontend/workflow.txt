@@ -18,7 +18,14 @@
 11. Dynamic chunk implement
 12. check files before combining
 
+13. Modularization of that mess
 
+14. Implement Upload too.
+
+
+
+xxx. cleanup of chunks in server. full cleanup after x seconds
+xxx. send ack on both sides
 
 
 
