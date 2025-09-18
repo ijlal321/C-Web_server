@@ -12,7 +12,7 @@ struct AppContext;
 enum WsOPCodes{
     CLIENT_REGISTER = 0,
     UI_REGISTER,
-    PUBLIC_ID,  // Sending your public name
+    PUBLIC_ID,  // Sending your public ID
     ADD_CLIENT,
     UI_APPROVE_CLIENT,
     SERVER_APPROVE_CLIENT,

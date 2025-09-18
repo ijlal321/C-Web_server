@@ -6,6 +6,9 @@
 
 #include "json_to_data.h"
 
+static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len);
+
+
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
         printf("Error Creating RW_lock\n");
@@ -40,7 +43,6 @@ void * start_connections(void * args){
     mg_stop(cw_ctx);
     return NULL;
 }
-
 
 struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connection *conn, const cJSON *data){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
@@ -251,6 +253,13 @@ void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data){
     return;
 }
 
+void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    char * string_to_send = cJSON_PrintUnformatted(ws_data);
+    cm_broadcast_message(connection_mgr, string_to_send, strlen(string_to_send));
+    free(string_to_send);   
+    return;
+}
+
 
 void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
     // Get public_id and file_id from data.
@@ -383,4 +392,24 @@ void cm_remove_files_from_clients(struct ConnectionManager * connection_mgr, con
 
 
 
+
+// ===========  CM HELPER FUNS ============= //
+
+static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len){
+    // lock connection manager, bcz we need to loop over 
+    pthread_rwlock_wrlock(&connection_mgr->rwlock);
+    
+    // send payload to server
+    mg_websocket_write(connection_mgr->server.conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
+
+    // send payload to all clients
+    // loop over conn of all clients and send if its approved
+    struct Client *cur, *tmp;
+    HASH_ITER(hh, connection_mgr->clients, cur, tmp) {
+        if (cur->approved){
+            mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
+        }
+    }
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+}
 

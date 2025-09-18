@@ -140,7 +140,7 @@ export function change_client_approval_state(client_public_id, approval_state){
             data: {public_id: client_public_id}
         }))
     }
-    
+
 }
 
 // ================== HANDLING WS Incomming MESSAGES ======================== //
@@ -159,6 +159,9 @@ function handle_message(msg){
         case WsOPCodes.UI_ADD_FILES:
             ws_add_available_files(data);
             break;
+        case WsOPCodes.CLIENT_ADD_FILES:
+            ws_add_available_files(data);   // Trick right here. need proper opcodes here.
+            break;
         case WsOPCodes.SERVER_UPLOAD_CHUNK:
             ws_upload_chunk(data)
             break;
@@ -172,7 +175,7 @@ function handle_message(msg){
             ws_add_client(data);
             break;
         default:
-            console.log("Unknown Opcode Send: ", opcode);
+            console.warn("Unknown Opcode Received: ", opcode);
     }
 
 }

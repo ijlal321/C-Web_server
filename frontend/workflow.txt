@@ -25,11 +25,42 @@
 
 // ========== REALISTIC WORK I AM DOING RN ========= //
 
+
+// temp
+doing RN
+1 client register using - CLIENT_REGISTER - send to UI
+2. UI approve or dissapprove -  CLIENT_APPROVED/CLIENT_DIS_APPROVED 
+    broadcast this to everyone with - ````   - 
+        Disapprove client will close all connections with other, removing any download if in progress, on both sides
+3. Someone adds/remove a file -> Broadcast to everyone - ADD_FILES/REMOVE_FILE
+                                // REMEMBER MULTIPLE ADD / SINGLUAR REMOVE
+4. Someone asks a chunk - REQUEST_CHUNK - it will ask owner of file
+    to upload chunk - UPLOAD_CHUNK_REQUEST -
+    other will upload chunk, when chunk is available on server, it 
+    will notify asking client - CHUNK_READY
+
+
 1. ADD APP IN THIS SAME UI USING ENV VAR
+    1. approve / done -- disapprove on client [remaining - what to do]
+ -> 2. download - upload file, full both sides. # done
+        1. [think] -> someone sent a new file update [add / remove ]-> broadcast.
+        2. [think] -> client reconnects -> UI send latest data.
+        3. [think] -> all files send or just new ? i think all is good - need to rename opcodes.
+    3. Register cleint -> also gives name.
+    4. Only when UI approve, then sent client info to all clients.
+    5. 
+
+    3. refactor or change - files + client info + download status => all 3 into 1 should be.
+    4. pause / resume 
+    5. client / server reconnect - [via private id]
+    6. make http req secure
+    7.  remove lock from client or files, whatever dont work well with uthash. [!! need research !!]
 2. MAKE FULLLY WORKING APP. [NO WS RECONNECT LOGIC]
 2.5 HANDLE SMALL THINGS LIKE FOLDER TRANSFER. [ONLY APP - APP], naming of devices <update + send>
 3. IMPORIVE UI [FROM NIGERIA OR CHINA]
 4. PORT TO REACT NATIVE []
+
+// ** IMP // a way to handle websocket resend issue is, when add or remove files, this gets send to UI. ALl stuff. when UI accepts it, then UI broadcast message. Thus a sigulairity is fromed.
 
 // CALL VICTOE -> Only Talk About Video and FYP. [MUST BE DONE THIS WEEKEND]
 

@@ -36,6 +36,7 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
 
 void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data);
 
+void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
 void cm_remove_files_from_UI(struct Server * server, const cJSON * ws_data);

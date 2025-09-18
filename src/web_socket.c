@@ -125,7 +125,8 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             // Handle Adding new files in client files 
             /// Note: All Duplicate handling will be done at client side. None Here.
             cm_add_files(connection_mgr, ws_data);
-            cm_send_files_to_UI(&connection_mgr->server, root);
+            // cm_send_files_to_UI(&connection_mgr->server, root);
+            cm_broadcast_new_file(connection_mgr, root);
             printf("Handling ADD_FILES\n");
             break;
         case CLIENT_REMOVE_FILE:
