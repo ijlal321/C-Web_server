@@ -14,14 +14,16 @@ int main(void) {
     pthread_t th;
     pthread_create(&th, NULL, start_connections, (void * )&app_ctx); 
     
+    while(1){
+
+    };
+
     // SCREEN : init screen_size, UI, etc 
     webview_t w = ui_init();
     if (w == NULL) {
         return 1;
     }
-    // while(1){
 
-    // };
     // Run the webview
     webview_run(w); // Must run on main thread
 

@@ -23,6 +23,16 @@
 14. Implement Upload too.
 
 
+// ========== REALISTIC WORK I AM DOING RN ========= //
+
+1. ADD APP IN THIS SAME UI USING ENV VAR
+2. MAKE FULLLY WORKING APP. [NO WS RECONNECT LOGIC]
+2.5 HANDLE SMALL THINGS LIKE FOLDER TRANSFER. [ONLY APP - APP], naming of devices <update + send>
+3. IMPORIVE UI [FROM NIGERIA OR CHINA]
+4. PORT TO REACT NATIVE []
+
+// CALL VICTOE -> Only Talk About Video and FYP. [MUST BE DONE THIS WEEKEND]
+
 
 xxx. cleanup of chunks in server. full cleanup after x seconds
 xxx. send ack on both sides
@@ -36,5 +46,5 @@ vite.config.js -> remove proxy
 app.jsx        -> approved must be false by default
 
 should we do:
-1. upload folder possible frombrowser, but caveats. we need to handle it anyways due to app. (later)
+1. upload folder possible frombrowser, but caveats. we need to handle it anyways due to app. (only if downloading file is in app).
 

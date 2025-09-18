@@ -78,7 +78,7 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
 
 void cm_add_client_to_UI(struct Server * server, struct Client * client){
     char buffer[256];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":[{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}]}", ADD_CLIENT , client->public_id, client->approved, client->public_name);
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", ADD_CLIENT , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
 
@@ -90,13 +90,14 @@ void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_con
     if (server->conn != NULL){
         printf("Connection Already exists ?\n");
         // TODO: ?
-        return;
+        // return;  // for testing, dont return. make it refresh.
     }
 
     server->conn =conn;
     server->public_id = 0;
 
     pthread_rwlock_unlock(&connection_mgr->rwlock);
+    printf("App Connected Successfully\n");
     return;
 }
 

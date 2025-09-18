@@ -27,12 +27,17 @@ export function registerOnAvailableFilesUpdate(callback) {
     onAvailableFilesUpdate = callback;
 }
 
+// Client Approval / Removal Fns
+let onClientAddUpdate;
+export function registerOnClientAddUpdate(callback) {
+    onClientAddUpdate = callback;
+}
 
 
 
 // ======================= WS Functionality / Event Registration ===================== //
 let ws;
-export function init(private_id){
+export function init({private_id = null , public_id = null}){
     const ws_url = import.meta.env.VITE_WEB_SOCKET_URL;
     ws = new WebSocket(ws_url);
     // #  should we use window.location.hostname ?
@@ -42,7 +47,12 @@ export function init(private_id){
 
 
     ws.onopen = function() {
-        ws.send(JSON.stringify({ opcode: WsOPCodes.CLIENT_REGISTER, data: { private_id } }));
+        if (public_id != null){
+            ws.send(JSON.stringify({ opcode: WsOPCodes.UI_REGISTER, data: {} }));
+            ws_our_public_id = public_id;
+        }else{
+            ws.send(JSON.stringify({ opcode: WsOPCodes.CLIENT_REGISTER, data: { private_id } }))
+        }
     };
 
     ws.onclose = function(){
@@ -63,7 +73,6 @@ export function init(private_id){
             console.log("Websocket Incomming Message Cannot be parsed: ", error);
         }
     }
-    ws = ws;
 }
 
 // ================== HANDLING WS Out Going MESSAGES ======================== //
@@ -115,11 +124,30 @@ export function request_chunk(owner_public_id, file_id, start_pos, size) {
     }));
 }
 
+export function change_client_approval_state(client_public_id, approval_state){
+    if (client_public_id == null || approval_state == null){
+        console.error("Cannot APprove/DisApprove Client: Invalid or incomplete information");
+        return;
+    }
+    if (approval_state == 0){ // dissapprove
+        ws.send(JSON.stringify({
+            opcode: WsOPCodes.UI_DIS_APPROVE_CLIENT,
+            data: {public_id: client_public_id}
+        }))
+    }else if (approval_state == 1){ // approve
+        ws.send(JSON.stringify({
+            opcode: WsOPCodes.UI_APPROVE_CLIENT,
+            data: {public_id: client_public_id}
+        }))
+    }
+    
+}
+
 // ================== HANDLING WS Incomming MESSAGES ======================== //
 
 function handle_message(msg){
     const {opcode, data} = msg;
-    // console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
+    console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
 
     switch (opcode){
         case WsOPCodes.PUBLIC_ID:
@@ -139,6 +167,9 @@ function handle_message(msg){
             break;
         case WsOPCodes.UI_REMOVE_FILE:
             ws_remove_available_file(data);
+            break;
+        case WsOPCodes.ADD_CLIENT:
+            ws_add_client(data);
             break;
         default:
             console.log("Unknown Opcode Send: ", opcode);
@@ -230,6 +261,15 @@ function ws_upload_chunk(data){
     }
 
     file_downloader.upload_chunk(owner_public_id, file_id, start_pos, size);
+}
+
+function ws_add_client(data){
+    if (data.public_id== null || data.public_name == null || data.approved == null){
+        console.error("Cannot Add Client: Invalid or incomplete information");
+        return;
+    }
+    onClientAddUpdate(data);
+
 }
 
 // =====================  WS Helper FN ============ //

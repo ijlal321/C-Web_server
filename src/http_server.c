@@ -235,5 +235,5 @@ static int DownloadChunkHandler(struct mg_connection *conn, void *cbdata) {
 void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx){
     mg_set_request_handler(cw_ctx, "/upload_chunk", UploadChunkHandler, app_ctx);
     mg_set_request_handler(cw_ctx, "/download_chunk", DownloadChunkHandler, app_ctx);
-    mg_set_request_handler(cw_ctx, "**", RootHandler, 0); // router all paths to default one. In case user put something else in navbar.
+    // mg_set_request_handler(cw_ctx, "**", RootHandler, 0); // router all paths to default one. In case user put something else in navbar.
 }
