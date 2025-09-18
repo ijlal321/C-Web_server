@@ -98,38 +98,44 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     // take fields out of struct.
     const cJSON * ws_data = ws_msg_header.data;
     enum WsOPCodes op = (enum WsOPCodes)ws_msg_header.opcode;
-
+    int res; // temp var for holding data below
     switch (op) {
+        case MASTER_APP_REGISTER:
+            res = cm_register_master_app(connection_mgr, conn);
+            cm_send_master_app_registered_ack(&connection_mgr->server, res);
+            break;
         case CLIENT_REGISTER:
             struct Client * client = cm_add_client(connection_mgr, conn, ws_data);
             if (client == NULL){ // some error occured
                 return 1;  // 0 means close connection. we are not rn.
             }
+            // TODO: Big : Name send.
             cm_send_public_id_to_client(conn, client->public_id);
             cm_add_client_to_UI(&connection_mgr->server, client);
             break;
-        case UI_REGISTER:
-            cm_register_server(connection_mgr, conn);
+        case APPROVE_CLIENT:
+            res = cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved
+            if (res != -1){
+                cm_broadcast_client_approval(connection_mgr, ws_data); // tell Every Client about a client approval
+                printf("approve client called\n");
+            }
             break;
-        case UI_APPROVE_CLIENT:
-            cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved
-            cm_notify_client_approval(connection_mgr, ws_data); // tell client about its approval
-            printf("approve client called\n");
+        case DIS_APPROVE_CLIENT:
+            res = cm_set_client_approval(connection_mgr, ws_data, 0); // set client to disaproved
+            if (res != -1){
+                cm_broadcast_client_approval(connection_mgr, ws_data); // notify client
+                printf("UI_DIS_APPROVE_CLIENT client called\n");
+            }
             break;
-        case UI_DIS_APPROVE_CLIENT:
-            cm_set_client_approval(connection_mgr, ws_data, 0); // set client to disaproved
-            cm_notify_client_approval(connection_mgr, ws_data); // notify client
-            printf("UI_DIS_APPROVE_CLIENT client called\n");
+        case ADD_FILES:
+            /// Note: Duplicate FIle ID will be Ignored. Client is expected to do same.
+            res = cm_add_files(connection_mgr, ws_data);
+            if (res == 0){
+                cm_broadcast_new_file(connection_mgr, ws_data);
+                printf("Handling ADD_FILES\n");
+            }
             break;
-        case CLIENT_ADD_FILES:
-            // Handle Adding new files in client files 
-            /// Note: All Duplicate handling will be done at client side. None Here.
-            cm_add_files(connection_mgr, ws_data);
-            // cm_send_files_to_UI(&connection_mgr->server, root);
-            cm_broadcast_new_file(connection_mgr, root);
-            printf("Handling ADD_FILES\n");
-            break;
-        case CLIENT_REMOVE_FILE:
+        /*case CLIENT_REMOVE_FILE:
             // Handle removing files from client files
             /// TODO: File is Being transfered.
             cm_remove_files(connection_mgr, ws_data);
@@ -150,6 +156,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             cm_remove_files_from_clients(connection_mgr, root);
             printf("Handling REMOVE_FILE\n");
             break;
+            */
         case REQUEST_CHUNK:
             chunk_request_manage(app_ctx , ws_data, conn);
             printf("Handling REQUEST CHUNK\n");

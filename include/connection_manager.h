@@ -22,17 +22,19 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id);
 
 void cm_add_client_to_UI(struct Server * server, struct Client * client);
 
-void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_connection *conn);
+int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn);
+
+void cm_send_master_app_registered_ack(struct Server * server, int res);
 
 void cm_approve_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
 void cm_notify_client_approved(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
-void cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved);
+int cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved);
 
-void cm_notify_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
-void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
 void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data);
 

@@ -37,7 +37,7 @@ export function registerOnClientAddUpdate(callback) {
 
 // ======================= WS Functionality / Event Registration ===================== //
 let ws;
-export function init({private_id = null , public_id = null}){
+export function init(private_id){
     const ws_url = import.meta.env.VITE_WEB_SOCKET_URL;
     ws = new WebSocket(ws_url);
     // #  should we use window.location.hostname ?
@@ -47,9 +47,8 @@ export function init({private_id = null , public_id = null}){
 
 
     ws.onopen = function() {
-        if (public_id != null){
-            ws.send(JSON.stringify({ opcode: WsOPCodes.UI_REGISTER, data: {} }));
-            ws_our_public_id = public_id;
+        if (private_id == null){
+            ws.send(JSON.stringify({ opcode: WsOPCodes.MASTER_APP_REGISTER, data: {} }));
         }else{
             ws.send(JSON.stringify({ opcode: WsOPCodes.CLIENT_REGISTER, data: { private_id } }))
         }
@@ -131,12 +130,12 @@ export function change_client_approval_state(client_public_id, approval_state){
     }
     if (approval_state == 0){ // dissapprove
         ws.send(JSON.stringify({
-            opcode: WsOPCodes.UI_DIS_APPROVE_CLIENT,
+            opcode: WsOPCodes.DIS_APPROVE_CLIENT,
             data: {public_id: client_public_id}
         }))
     }else if (approval_state == 1){ // approve
         ws.send(JSON.stringify({
-            opcode: WsOPCodes.UI_APPROVE_CLIENT,
+            opcode: WsOPCodes.APPROVE_CLIENT,
             data: {public_id: client_public_id}
         }))
     }
@@ -150,17 +149,26 @@ function handle_message(msg){
     console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
 
     switch (opcode){
-        case WsOPCodes.PUBLIC_ID:
+        case WsOPCodes.MASTER_APP_REGISTER_ACK:
+            handle_master_app_registered_ack(data);
+            break;
+        case WsOPCodes.CLIENT_REGISTER_ACK:
             ws_set_public_id(data);
             break;
-        case WsOPCodes.SERVER_APPROVE_CLIENT:
-            ws_set_approved_state(true);
+        case WsOPCodes.NEW_CLIENT_REGISTERED:
+            ws_add_client(data);
+            break;
+        case WsOPCodes.CLIENT_APPROVED:
+            ws_set_approved_state(data, true);
             break;  
-        case WsOPCodes.UI_ADD_FILES:
+        case WsOPCodes.CLIENT_DIS_APPROVED:
+            ws_set_approved_state(data, false);
+            break;  
+        case WsOPCodes.FILES_ADDED:
             ws_add_available_files(data);
             break;
-        case WsOPCodes.CLIENT_ADD_FILES:
-            ws_add_available_files(data);   // Trick right here. need proper opcodes here.
+        case WsOPCodes.FILE_REMOVED:
+            ws_remove_available_files(data);   // Trick right here. need proper opcodes here.
             break;
         case WsOPCodes.SERVER_UPLOAD_CHUNK:
             ws_upload_chunk(data)
@@ -171,13 +179,26 @@ function handle_message(msg){
         case WsOPCodes.UI_REMOVE_FILE:
             ws_remove_available_file(data);
             break;
-        case WsOPCodes.ADD_CLIENT:
+        case WsOPCodes.ADD_CLIENT:  // unused i think
             ws_add_client(data);
             break;
         default:
             console.warn("Unknown Opcode Received: ", opcode);
     }
 
+}
+
+function handle_master_app_registered_ack(data){
+    if (!onPublicIdUpdate){
+        console.error("Client Logic Error: publicIdSetterCallback called before initialized");
+        return;
+    }
+    if (data.public_id != null && data.public_id == 0){
+        onPublicIdUpdate(data.public_id); // mark as Master_APP
+        ws_our_public_id = data.public_id;
+    }else{
+        console.error("Server Does Not Accept Us as Master App");
+    }
 }
 
 
@@ -194,12 +215,23 @@ function ws_set_public_id(data){
     onPublicIdUpdate(data.public_id);
 }
 
-function ws_set_approved_state(new_state){
+function ws_set_approved_state(client, new_state){
+    if (client ==null || client.public_id == null || client.public_name == null || client.approved == null){
+        console.error("Change Approve State: Data from server Invalid or INcomplete");
+        return;
+    }
     if (onApprovalStateChange == null){
         console.error("Client Logic Error: approvedStateSetterCallback called before initialized");
         return;
     }
-    onApprovalStateChange(new_state);
+
+    // check if the one being approved is us
+    if (client.public_id == ws_our_public_id){
+        onApprovalStateChange(new_state);
+        return;
+    }else{  // else update data of available clients
+        onClientAddUpdate({...client, approved: new_state});
+    }
 }
 
 function ws_add_available_files(data){
@@ -211,12 +243,38 @@ function ws_add_available_files(data){
         console.log("Add Available FIles: Data from server Invalid or INcomplete");
         return;
     }
+    if (data.public_id == ws_our_public_id){
+        return; // not for us.
+    }
     onAvailableFilesUpdate(prev => {
         const updated = { ...prev };
         if (!updated[data.public_id]) {
             updated[data.public_id] = [];
         }
         updated[data.public_id] = updated[data.public_id].concat(data.files);
+        return updated;
+    });
+}
+
+function ws_remove_available_files(data){
+    if (onAvailableFilesUpdate == null){
+        console.error("Client Logic Error: onAvailableFilesUpdate called before initialized");
+        return;
+    }
+    if (!data || typeof data.public_id == 'undefined' 
+        // || !Array.isArray(data.files)  // need if later we convert it to array
+        ){
+        console.log("Add Available FIles: Data from server Invalid or INcomplete");
+        return;
+    }
+    if (data.public_id == ws_our_public_id){
+        return; // not for us.
+    }
+    onAvailableFilesUpdate(prev => {
+        const updated = { ...prev };
+        if (updated[data.public_id]) {
+            updated[data.public_id] = updated[data.public_id].filter(file => file.id != data.file_id);
+        }
         return updated;
     });
 }
@@ -288,3 +346,10 @@ function is_ws_ready_to_send_msg(){
     }
     return true;
 }
+
+function only_server(){
+    if (ws_our_public_id == 0){
+        return true;
+    }
+    return false;
+}   

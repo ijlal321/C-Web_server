@@ -25,6 +25,13 @@
 
 // ========== REALISTIC WORK I AM DOING RN ========= //
 
+    FROM MASTER_APP REGISTER TO CLIENT APPROVAL connection_manager needs to be 
+    MODULARIZED. IS WHAT I AM DOING !!!
+
+    2. Broadcast issue, 
+        1. do i send these initial to server too ? as an ack ?
+        2. how to handle broadcast client, meaning send to approved too ?
+
 master_app registers -> MASTER_APP_REGISTER
 -> server returns -> MASTER_APP_REGISTER_ACK
 
@@ -32,19 +39,25 @@ client registers -> CLIENT_REGISTER
 -> server send req to cleint CLIENT_REGISTER_ACK
 -> server send to master_app NEW_CLIENT_REGISTERED
 
-master_app approves a client -> APPROVE_CLIENT
+master_app approves a client -> APPROVE_CLIENT/DIS_APPROVE_CLIENT
 -> Server approves client
--> send notification to EVERYONE client's approved -> CLIENT_APPROVED
+-> send notification to EVERYONE client's approved -> CLIENT_APPROVED/CLIENT_DIS_APPROVED
 
 somedevice asks to add a file -> ADD_FILES/REMOVE_FILE
-    [for add files, add them to a temp var, only when receive below msg. Add to UI].
-    [for remove, remove only when receive below message]
--> server boradcast FILES_ADDED, FILES_REMOVED, if successful
+  ❌ not now  [for add files, add them to a temp var, only when receive below msg. Add to UI].
+  ❌ not now  [for remove, remove only when receive below message], 
+    [ok, so when you select files, select files button becomes grey, if no ack in x sec, tell mess, that error]
+-> server boradcast FILES_ADDED, FILE_REMOVED, if successful
 
 someone asks a chunk -> REQUEST_CHUNK
 -> server asks owner -> UPLOAD_CHUNK_REQUEST
 -> owner uploads -> 
 -> server notifies akser -> CHUNK_READY
+
+then we modularize our client files structure, as we talked below. 3 things in 1.
+
+then we implement reconnect logic. if ws dies, then how to stop messages.
+
 
 // temp
 doing RN

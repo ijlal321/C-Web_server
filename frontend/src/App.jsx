@@ -21,12 +21,11 @@ function App() {
 
     // init websocket
     const app_mode = import.meta.env.VITE_APP_MODE; 
-    if (app_mode == "app"){
-        web_socket.init({public_id: 0});
-        set_public_id(0); // Mark as server
+    if (app_mode == "master_app"){
+        web_socket.init();
       }else{
         const generated_private_id = utils.generateRandomId();
-        web_socket.init({private_id: generated_private_id});
+        web_socket.init(generated_private_id);
       }
   }, []);
 

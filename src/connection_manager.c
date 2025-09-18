@@ -7,7 +7,7 @@
 #include "json_to_data.h"
 
 static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len);
-
+static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len);
 
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
@@ -73,19 +73,19 @@ struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct 
 void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
     char buffer[128];
     //                    10 +  4 +                      22  + 4 +2 = 42 byte total  
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", PUBLIC_ID, public_id);
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", CLIENT_REGISTER_ACK, public_id);
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
 
 
 void cm_add_client_to_UI(struct Server * server, struct Client * client){
     char buffer[256];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", ADD_CLIENT , client->public_id, client->approved, client->public_name);
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", NEW_CLIENT_REGISTERED , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
 
 
-void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
+int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
     
     struct Server * server = &connection_mgr->server;
@@ -100,16 +100,25 @@ void cm_register_server(struct ConnectionManager * connection_mgr, struct mg_con
 
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     printf("App Connected Successfully\n");
-    return;
+    return 0;
 }
 
-void cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved){
+void cm_send_master_app_registered_ack(struct Server * server, int res){
+    char buffer[128];
+    sprintf(buffer, "{\"opcode\":%d , \"data\":{\"public_id\": %d}}", MASTER_APP_REGISTER_ACK, 0);
+    mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
+}
+
+/**
+ * @return 0 on success. else error.
+ */
+int cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved){
 
     // Get public_id from data.
     int public_id;    
     if (j2d_get_int(ws_data, "public_id", &public_id) != 0){
         printf("Cannot APprove Client Because Public Id not found.\n");
-        return;
+        return 1;
     }
 
     // Lock the content manager to fund client
@@ -121,7 +130,8 @@ void cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJS
     struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
     if (client == NULL){
         printf("Cannot Approve Client because No CLient with Public_id: %d \n", public_id);
-        goto end;
+        pthread_rwlock_unlock(&connection_mgr->rwlock);
+        return 1;
     }
 
     // Mark CLient Approved.
@@ -132,14 +142,13 @@ void cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJS
     client->approved = approved;
     pthread_rwlock_unlock(&client->rwlock);
 
-    end:
     // close connections gracefully
     pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return;
+    return 0;
 }
 
 
-void cm_notify_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
     
     // Get public_id from data.
     int public_id;    
@@ -160,9 +169,9 @@ void cm_notify_client_approval(struct ConnectionManager * connection_mgr, const 
     
     // Lock Client for readinf
     pthread_rwlock_rdlock(&client->rwlock);
-    char buffer[50];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{}}", client->approved == 1 ? SERVER_APPROVE_CLIENT : SERVER_DIS_APPROVE_CLIENT);
-    mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));    
+    char buffer[sizeof(struct Client) + 100]; 
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"public_name\":\"%s\", \"approved\":%d}}", client->approved == 1 ? CLIENT_APPROVED : CLIENT_DIS_APPROVED, public_id, client->public_name, client->approved);
+    cm_broadcast_message_to_all_clients(connection_mgr, buffer, strlen(buffer));
     pthread_rwlock_unlock(&client->rwlock);
 
     // gracefully exit lock.
@@ -171,13 +180,13 @@ end:
     return;
 }
 
-void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    
+int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    int error = 0; // false
     // Get public_id and file_count from data.
     int public_id, file_count;    
     if (j2d_get_int(ws_data, "public_id", &public_id) != 0 || j2d_get_int(ws_data, "file_count", &file_count) != 0){
         printf("Cannot add files - No public_id or file_count was found in message.\n");
-        return;
+        return 1;
     }
     
 
@@ -190,6 +199,7 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
     struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
     if (client == NULL){
         printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
+        error = 1;
         goto end;
     }
     
@@ -197,29 +207,29 @@ void cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_da
     const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
     if (files_obj == NULL){
         printf("Cannot Add Files - No files data found\n");
+        error = 1;
         goto end;   
     }
 
+
     for (int i = 0; i < file_count; i++) {
-        printf("reached 1\n");
         // get current file
         cJSON *file = cJSON_GetArrayItem(files_obj, i);
         if (file == NULL){
             continue;
         }
-printf("reached 2\n");
+
         // get file fields
         const char *name = j2d_get_string(file, "name");  
         const char *type = j2d_get_string(file, "type");  
         int id;
         size_t size;
-printf("reached 3\n");
         // Fields CHecking. IMP: Name can be empty.
         if (j2d_get_int(file, "id", &id) != 0 || j2d_get_size_t(file, "size", &size) != 0 || type == NULL){
             printf("Canonot Add Filed - Incomplete Fields.\n");
             continue;
         }
-printf("reached 4\n");
+
         // create new file
         struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
         strncpy(new_file->name, name, sizeof(new_file->name)); // copy name
@@ -228,20 +238,29 @@ printf("reached 4\n");
         new_file->type[sizeof(new_file->type)-1] = '\0';  // safe null check
         new_file->size = size;  // copy size
         new_file->id = id;  // copy id
-printf("reached 5\n");
+
         new_file->is_transfering = 0; 
         pthread_rwlock_init(&new_file->rw_lock, NULL);
-printf("reached 6\n");
-        // add to hashmap
+
         pthread_rwlock_wrlock(&client->rwlock);
+        // Ignore if Duplicate File ID
+        struct File *existing_file = NULL;
+        HASH_FIND_INT(client->files, &id, existing_file);
+        if (existing_file != NULL) {
+            printf("File with id %d already exists for client %d. Skipping.\n", id, public_id);
+            free(new_file);
+            pthread_rwlock_unlock(&client->rwlock);
+            continue;
+        }
+        
+        // add to hashmap
         printf("clinet-> files: %d, id: %d, new_file: %d", client->files == NULL ? 0 : 1, id, new_file == NULL ? 0 : 1);
         HASH_ADD_INT(client->files, id, new_file);
         pthread_rwlock_unlock(&client->rwlock);
     }
-printf("reached 7\n");
 end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return;
+    return error;
 }
 
 
@@ -254,9 +273,15 @@ void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data){
 }
 
 void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    char * string_to_send = cJSON_PrintUnformatted(ws_data);
+
+    // ws_data contains full data without opcodes
+    char * data_string = cJSON_PrintUnformatted(ws_data);
+    char * string_to_send = calloc(1, sizeof(ws_data) + 128);
+    sprintf(string_to_send, "{\"opcode:%d\", data:%s}", FILES_ADDED, data_string); 
+    // char * string_to_send = cJSON_PrintUnformatted(ws_data);
     cm_broadcast_message(connection_mgr, string_to_send, strlen(string_to_send));
-    free(string_to_send);   
+    free(string_to_send);
+    free(data_string);
     return;
 }
 
@@ -411,5 +436,20 @@ static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char
         }
     }
     pthread_rwlock_unlock(&connection_mgr->rwlock);
+}
+
+/**
+ * @attention It assumes lock on connection manager is already done
+ */
+static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len){
+
+    // send payload to all clients
+    // loop over conn of all clients and send if its approved
+    struct Client *cur, *tmp;
+    HASH_ITER(hh, connection_mgr->clients, cur, tmp) {
+        // if (cur->approved){
+            mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
+        // }
+    }
 }
 

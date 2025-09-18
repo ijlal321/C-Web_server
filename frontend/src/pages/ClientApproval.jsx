@@ -14,6 +14,7 @@ const ClientApproval = ({ our_files, set_our_files, available_files, set_availab
             set_clients(prev => [...prev, client]);
             return;
         }
+        // update client
         set_clients(prev =>
             prev.map(c =>
                 c.public_id === client.public_id ? { ...c, ...client } : c
