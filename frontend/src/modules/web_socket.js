@@ -82,7 +82,7 @@ export function send_files_to_server(files){
 
     // Send new files to websocket
     ws.send(JSON.stringify({
-        opcode: WsOPCodes.CLIENT_ADD_FILES,
+        opcode: WsOPCodes.ADD_FILES,
         data: {
             public_id: ws_our_public_id,
             file_count: files.length,
@@ -97,7 +97,7 @@ export function remove_file_from_server(file_id){
 
     // Remove from UI
     ws.send(JSON.stringify({
-        opcode: WsOPCodes.CLIENT_REMOVE_FILE,
+        opcode: WsOPCodes.REMOVE_FILE,
         data: {
             public_id: ws_our_public_id,
             file_id: file_id

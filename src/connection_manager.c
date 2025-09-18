@@ -7,7 +7,7 @@
 #include "json_to_data.h"
 
 static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len);
-static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len);
+static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len, int exception_id);
 
 void cm_init(struct ConnectionManager * connection_mgr){
     if (pthread_rwlock_init(&connection_mgr->rwlock, NULL) != 0){
@@ -171,7 +171,7 @@ void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, con
     pthread_rwlock_rdlock(&client->rwlock);
     char buffer[sizeof(struct Client) + 100]; 
     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"public_name\":\"%s\", \"approved\":%d}}", client->approved == 1 ? CLIENT_APPROVED : CLIENT_DIS_APPROVED, public_id, client->public_name, client->approved);
-    cm_broadcast_message_to_all_clients(connection_mgr, buffer, strlen(buffer));
+    cm_broadcast_message_to_all_clients(connection_mgr, buffer, strlen(buffer), client->public_id);
     pthread_rwlock_unlock(&client->rwlock);
 
     // gracefully exit lock.
@@ -194,13 +194,23 @@ int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_dat
     printf("public_id = %d, file_count = %d\n", public_id, file_count);
     pthread_rwlock_rdlock(&connection_mgr->rwlock);
 
+    union FilesOwner{
+        struct Client * client;
+        struct Server * server;
+    };
+    union FilesOwner file_owner;
 
-    // Find Client by Public_ID
-    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
-    if (client == NULL){
-        printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
-        error = 1;
-        goto end;
+    if (public_id == 0){
+        file_owner.server = &connection_mgr->server;
+    }else{
+        // Find Client by Public_ID
+        struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
+        if (client == NULL){
+            printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
+            error = 1;
+            goto end;
+        }
+        file_owner.client = client;
     }
     
     // Get array of Files Object
@@ -210,7 +220,11 @@ int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_dat
         error = 1;
         goto end;   
     }
-
+    if (public_id == 0){
+        pthread_rwlock_wrlock(&file_owner.server->rwlock);
+    }else{
+        pthread_rwlock_wrlock(&file_owner.client->rwlock);
+    }
 
     for (int i = 0; i < file_count; i++) {
         // get current file
@@ -229,7 +243,6 @@ int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_dat
             printf("Canonot Add Filed - Incomplete Fields.\n");
             continue;
         }
-
         // create new file
         struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
         strncpy(new_file->name, name, sizeof(new_file->name)); // copy name
@@ -242,21 +255,31 @@ int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_dat
         new_file->is_transfering = 0; 
         pthread_rwlock_init(&new_file->rw_lock, NULL);
 
-        pthread_rwlock_wrlock(&client->rwlock);
-        // Ignore if Duplicate File ID
         struct File *existing_file = NULL;
-        HASH_FIND_INT(client->files, &id, existing_file);
+        if (public_id == 0){
+            HASH_FIND_INT(file_owner.server->files, &id, existing_file);
+        }else{
+            HASH_FIND_INT(file_owner.client->files, &id, existing_file);
+        }
+        // Ignore if Duplicate File ID
         if (existing_file != NULL) {
             printf("File with id %d already exists for client %d. Skipping.\n", id, public_id);
             free(new_file);
-            pthread_rwlock_unlock(&client->rwlock);
             continue;
         }
-        
+
         // add to hashmap
-        printf("clinet-> files: %d, id: %d, new_file: %d", client->files == NULL ? 0 : 1, id, new_file == NULL ? 0 : 1);
-        HASH_ADD_INT(client->files, id, new_file);
-        pthread_rwlock_unlock(&client->rwlock);
+        // printf("clinet-> files: %d, id: %d, new_file: %d", client->files == NULL ? 0 : 1, id, new_file == NULL ? 0 : 1);
+        if (public_id == 0){
+            HASH_ADD_INT(file_owner.server->files, id, new_file);
+        }else{
+            HASH_ADD_INT(file_owner.client->files, id, new_file);
+        }
+    }
+    if (public_id == 0){
+        pthread_rwlock_unlock(&file_owner.server->rwlock);
+    }else{
+        pthread_rwlock_unlock(&file_owner.client->rwlock);
     }
 end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
@@ -273,11 +296,10 @@ void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data){
 }
 
 void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-
     // ws_data contains full data without opcodes
     char * data_string = cJSON_PrintUnformatted(ws_data);
-    char * string_to_send = calloc(1, sizeof(ws_data) + 128);
-    sprintf(string_to_send, "{\"opcode:%d\", data:%s}", FILES_ADDED, data_string); 
+    char * string_to_send = calloc(1, strlen(data_string) + 128);
+    sprintf(string_to_send, "{\"opcode\":%d, \"data\":%s}", FILES_ADDED, data_string); 
     // char * string_to_send = cJSON_PrintUnformatted(ws_data);
     cm_broadcast_message(connection_mgr, string_to_send, strlen(string_to_send));
     free(string_to_send);
@@ -441,15 +463,15 @@ static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char
 /**
  * @attention It assumes lock on connection manager is already done
  */
-static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len){
+static void cm_broadcast_message_to_all_clients(struct ConnectionManager * connection_mgr, char * payload, size_t payload_len, int exception_id){
 
     // send payload to all clients
     // loop over conn of all clients and send if its approved
     struct Client *cur, *tmp;
     HASH_ITER(hh, connection_mgr->clients, cur, tmp) {
-        // if (cur->approved){
+        if (cur->public_id == exception_id || cur->approved){
             mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
-        // }
+        }
     }
 }
 
