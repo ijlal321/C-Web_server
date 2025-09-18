@@ -25,6 +25,26 @@
 
 // ========== REALISTIC WORK I AM DOING RN ========= //
 
+master_app registers -> MASTER_APP_REGISTER
+-> server returns -> MASTER_APP_REGISTER_ACK
+
+client registers -> CLIENT_REGISTER
+-> server send req to cleint CLIENT_REGISTER_ACK
+-> server send to master_app NEW_CLIENT_REGISTERED
+
+master_app approves a client -> APPROVE_CLIENT
+-> Server approves client
+-> send notification to EVERYONE client's approved -> CLIENT_APPROVED
+
+somedevice asks to add a file -> ADD_FILES/REMOVE_FILE
+    [for add files, add them to a temp var, only when receive below msg. Add to UI].
+    [for remove, remove only when receive below message]
+-> server boradcast FILES_ADDED, FILES_REMOVED, if successful
+
+someone asks a chunk -> REQUEST_CHUNK
+-> server asks owner -> UPLOAD_CHUNK_REQUEST
+-> owner uploads -> 
+-> server notifies akser -> CHUNK_READY
 
 // temp
 doing RN
@@ -38,6 +58,7 @@ doing RN
     to upload chunk - UPLOAD_CHUNK_REQUEST -
     other will upload chunk, when chunk is available on server, it 
     will notify asking client - CHUNK_READY
+
 
 
 1. ADD APP IN THIS SAME UI USING ENV VAR
