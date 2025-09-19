@@ -28,8 +28,13 @@
     FROM MASTER_APP REGISTER TO CLIENT APPROVAL connection_manager needs to be 
     MODULARIZED. IS WHAT I AM DOING !!!
 
-    2. Broadcast issue, 
-        1. do i send these initial to server too ? as an ack ?
+    Do I really need to handle all client data / server data in my c server ? no purpose it gives.
+    No need to store files in there. store metadata like name, orivate id, public id, etc. 
+    Benifits of storing -> 
+    Cons -> 
+
+    2. Broadcast issue,    // DONE
+        1. do i send these initial to server too ? as an ack ?  ✅ YES
         2. how to handle broadcast client, meaning send to approved too ?
 
 master_app registers -> MASTER_APP_REGISTER
