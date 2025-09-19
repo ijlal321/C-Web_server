@@ -62,7 +62,7 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
         HASH_ADD(hh, chunk_mgr->chunks, chunk_key, sizeof(struct ChunkKey), new_chunk);
         
         // send message to owner to send data
-        send_chunk_request(target_socket, SERVER_UPLOAD_CHUNK, owner_public_id, file_id, start_pos, size);
+        send_chunk_request(target_socket, REQUEST_CHUNK_UPLOAD, owner_public_id, file_id, start_pos, size);
         goto end;
     
     }
@@ -73,7 +73,7 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
     add_client_to_chunk(cur_chunk, sender_public_id);
 
     if (cur_chunk->is_downloaded){   // if chunk fully available then download, else wait.
-        send_chunk_request(conn, SERVER_CHUNK_READY, owner_public_id, file_id, start_pos, size);
+        send_chunk_request(conn, CHUNK_READY, owner_public_id, file_id, start_pos, size);
     }
 
     pthread_rwlock_unlock(&cur_chunk->rw_lock);
@@ -142,7 +142,7 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
         HASH_ADD(hh, chunk_mgr->chunks, chunk_key, sizeof(struct ChunkKey), new_chunk);
         // Immediately mark as ready for download
         char buffer[127];
-        sprintf(buffer, "{\"opcode\":%d, \"data\": {\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
+        sprintf(buffer, "{\"opcode\":%d, \"data\": {\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", CHUNK_READY, public_id, file_id, chunk_id);
         mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
         goto end;
     }
@@ -155,7 +155,7 @@ void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, st
         // if chunk fully ready
         // send msg ready
         char buffer[127];
-        sprintf(buffer, "{\"opcode\":%d, \"data\": {\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", SERVER_CHUNK_READY, public_id, file_id, chunk_id);
+        sprintf(buffer, "{\"opcode\":%d, \"data\": {\"public_id\":%d, \"file_id\":%d, \"chunk_id\":%d}}", CHUNK_READY, public_id, file_id, chunk_id);
         mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
     }
     pthread_rwlock_unlock(&cur_chunk->rw_lock);

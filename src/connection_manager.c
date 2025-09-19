@@ -307,6 +307,18 @@ void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSO
     return;
 }
 
+void cm_broadcast_remove_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    // ws_data contains full data without opcodes
+    char * data_string = cJSON_PrintUnformatted(ws_data);
+    char * string_to_send = calloc(1, strlen(data_string) + 128);
+    sprintf(string_to_send, "{\"opcode\":%d, \"data\":%s}", FILE_REMOVED, data_string); 
+    // char * string_to_send = cJSON_PrintUnformatted(ws_data);
+    cm_broadcast_message(connection_mgr, string_to_send, strlen(string_to_send));
+    free(string_to_send);
+    free(data_string);
+    return;
+}
+
 
 void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
     // Get public_id and file_id from data.

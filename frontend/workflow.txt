@@ -32,6 +32,7 @@
     No need to store files in there. store metadata like name, orivate id, public id, etc. 
     Benifits of storing -> 
     Cons -> 
+    CONSLUSION -> REMOVING FILES FROM SERVER. APPS MAINTAIN IT.
 
     2. Broadcast issue,    // DONE
         1. do i send these initial to server too ? as an ack ?  ✅ YES

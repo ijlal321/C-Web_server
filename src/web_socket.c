@@ -129,20 +129,21 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             break;
         case ADD_FILES:
             /// Note: Duplicate FIle ID will be Ignored. Client is expected to do same.
-            res = cm_add_files(connection_mgr, ws_data);
-            if (res == 0){
+            // res = cm_add_files(connection_mgr, ws_data);
+            // if (res == 0){
                 cm_broadcast_new_file(connection_mgr, ws_data);
                 printf("Handling ADD_FILES\n");
-            }
+            // }
             break;
-        /*case CLIENT_REMOVE_FILE:
+        case REMOVE_FILE:
             // Handle removing files from client files
             /// TODO: File is Being transfered.
-            cm_remove_files(connection_mgr, ws_data);
-            cm_remove_files_from_UI(&connection_mgr->server, root);
+            // cm_remove_files(connection_mgr, ws_data);
+            cm_broadcast_remove_file(connection_mgr, ws_data);
+            // cm_remove_files_from_UI(&connection_mgr->server, root);
             printf("Handling REMOVE_FILE\n");
             break;
-        case UI_ADD_FILES:
+        /*case UI_ADD_FILES:
             // Handle Adding new files in client files
             /// TODO: finalize CLINT_ADD_FILE, then copy it here
             cm_server_add_files(connection_mgr, ws_data);
