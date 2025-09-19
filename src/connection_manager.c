@@ -15,7 +15,7 @@ void cm_init(struct ConnectionManager * connection_mgr){
         exit(0);
     }
 
-    if (pthread_rwlock_init(&connection_mgr->server.rwlock, NULL) != 0){
+    if (pthread_rwlock_init(&connection_mgr->master_app.rwlock, NULL) != 0){
         printf("Error Creating RW_lock\n");
         exit(0);
     }   
@@ -80,7 +80,7 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
 
-void cm_add_client_to_UI(struct Server * server, struct Client * client){
+void cm_add_client_to_UI(struct MasterApp * server, struct Client * client){
     char buffer[256];
     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", NEW_CLIENT_REGISTERED , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
@@ -91,7 +91,7 @@ void cm_add_client_to_UI(struct Server * server, struct Client * client){
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
     
-    struct Server * server = &connection_mgr->server;
+    struct MasterApp * server = &connection_mgr->master_app;
     if (server->conn != NULL){
         printf("Connection Already exists ?\n");
         // TODO: ?
@@ -106,7 +106,7 @@ int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_
     return 0;
 }
 
-void cm_send_master_app_registered_ack(struct Server * server, int res){
+void cm_send_master_app_registered_ack(struct MasterApp * server, int res){
     char buffer[128];
     sprintf(buffer, "{\"opcode\":%d , \"data\":{\"public_id\": %d}}", MASTER_APP_REGISTER_ACK, 0);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
@@ -222,7 +222,7 @@ static void cm_broadcast_message(struct ConnectionManager * connection_mgr, char
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
     
     // send payload to server
-    mg_websocket_write(connection_mgr->server.conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
+    mg_websocket_write(connection_mgr->master_app.conn, MG_WEBSOCKET_OPCODE_TEXT, payload, payload_len);
 
     // send payload to all clients
     // loop over conn of all clients and send if its approved

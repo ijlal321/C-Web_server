@@ -208,7 +208,7 @@ static int parse_chunk_request(const cJSON *ws_data,
 static struct mg_connection *find_target_socket(struct ConnectionManager *mgr, int public_id)
 {
     if (public_id == 0) {
-        return mgr->server.conn;  // special case: server
+        return mgr->master_app.conn;  // special case: server
     }
 
     struct Client *target_client = NULL;

@@ -103,7 +103,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         case MASTER_APP_REGISTER:
             res = cm_register_master_app(connection_mgr, conn);
             // TODO: Send client the list of clients waiting for approval or if some connect before it. use cm_send_public_id_to_client();
-            cm_send_master_app_registered_ack(&connection_mgr->server, res);
+            cm_send_master_app_registered_ack(&connection_mgr->master_app, res);
             break;
         case CLIENT_REGISTER:
             struct Client * client = cm_add_client(connection_mgr, conn, ws_data);
@@ -112,7 +112,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             }
             // TODO: Big : Name send.
             cm_send_public_id_to_client(conn, client->public_id);
-            cm_add_client_to_UI(&connection_mgr->server, client);
+            cm_add_client_to_UI(&connection_mgr->master_app, client);
             break;
         case APPROVE_CLIENT:
             res = cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved

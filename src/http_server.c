@@ -100,7 +100,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
 
     // Allocate buffer for chunk data
     long content_length = ri->content_length;
-    if (content_length != size) {
+    if ((size_t)content_length != size) {
         printf("invalid chunk size %ld\n", content_length);
         mg_send_http_error(conn, 400, "%s", "Invalid content length");
         return 400;
@@ -153,7 +153,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     HASH_ITER(hh, cur_chunk->public_ids, entry, tmp) {
         struct mg_connection * target_conn = NULL;
         if (entry->public_id == 0){
-            target_conn = app_ctx->connection_mgr.server.conn;
+            target_conn = app_ctx->connection_mgr.master_app.conn;
         }else{
             struct Client * cur_client = NULL;
             HASH_FIND(hh, app_ctx->connection_mgr.clients, &entry->public_id, sizeof(int), cur_client);
@@ -170,7 +170,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
     pthread_rwlock_unlock(&chunk_mgr->rw_lock);
     mg_send_http_ok(conn, "text/plain", 2);
     mg_write(conn, "OK", 2);
-    printf("Chunk received and stored in memory (owner_public_id=%d, file_id=%d, start_pos=%d, size:%zu, bytes_read=%ld)\n", owner_public_id, file_id, start_pos, size, bytes_read);
+    printf("Chunk received and stored in memory (owner_public_id=%d, file_id=%d, start_pos=%zu, size:%zu, bytes_read=%ld)\n", owner_public_id, file_id, start_pos, size, bytes_read);
     return 200;
 
 }

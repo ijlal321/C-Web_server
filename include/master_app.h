@@ -1,7 +1,8 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef MASTER_APP_H
+#define MASTER_APP_H
 
-struct Server{
+// SERVER_H
+struct MasterApp{
     int public_id; 
     char public_name[NAME_STRING_SIZE];
     struct mg_connection * conn;
