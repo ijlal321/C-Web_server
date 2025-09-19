@@ -20,6 +20,8 @@ struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct 
 
 void cm_send_public_id_to_client(struct mg_connection * conn, int public_id);
 
+void cm_registered_client_send_ack(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+
 void cm_add_client_to_UI(struct MasterApp * server, struct Client * client);
 
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn);

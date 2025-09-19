@@ -79,11 +79,34 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d}}", CLIENT_REGISTER_ACK, public_id);
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
+void cm_registered_client_send_ack(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
+    // get public_id of client who got registered
+    int public_id;    
+    if (j2d_get_int(ws_data, "public_id", &public_id) != 0){
+        printf("Cannot APprove Client Because Public Id not found.\n");
+        return;
+    }
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    // find client which get registered by public id
+    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
+    if (client == NULL){
+        printf("Cannot Approve Client because No CLient with Public_id: %d \n", public_id);
+        pthread_rwlock_unlock(&connection_mgr->rwlock);
+        goto end;
+    }
+    
+    // notify newly registered client about his registration
+    char buff[128];
+    sprintf(buff, "{\"opcode\":%d, \"data\":{\"public_id\":%d }}", CLIENT_REGISTER_ACK, public_id);
+    mg_websocket_write(client->conn, MG_WEBSOCKET_OPCODE_TEXT, buff, strlen(buff));
+end:  
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+}
 
-void cm_add_client_to_UI(struct MasterApp * server, struct Client * client){
+void cm_add_client_to_UI(struct MasterApp * master_app, struct Client * client){
     char buffer[256];
-    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", NEW_CLIENT_REGISTERED , client->public_id, client->approved, client->public_name);
-    mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
+    sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", CLIENT_REGISTER , client->public_id, client->approved, client->public_name);
+    mg_websocket_write(master_app->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
 
 //  MASTER APP REGISTRATION
@@ -91,15 +114,15 @@ void cm_add_client_to_UI(struct MasterApp * server, struct Client * client){
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
     
-    struct MasterApp * server = &connection_mgr->master_app;
-    if (server->conn != NULL){
+    struct MasterApp * master_app = &connection_mgr->master_app;
+    if (master_app->conn != NULL){
         printf("Connection Already exists ?\n");
         // TODO: ?
         // return;  // for testing, dont return. make it refresh.
     }
 
-    server->conn =conn;
-    server->public_id = 0;
+    master_app->conn =conn;
+    master_app->public_id = 0;
 
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     printf("App Connected Successfully\n");
@@ -109,7 +132,7 @@ int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_
 void cm_send_master_app_registered_ack(struct MasterApp * server, int res){
     // use res to find if registered or not
     (void)res;  // for warning unsed vars
-    
+
     char buffer[128];
     sprintf(buffer, "{\"opcode\":%d , \"data\":{\"public_id\": %d}}", MASTER_APP_REGISTER_ACK, 0);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));

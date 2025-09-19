@@ -10,9 +10,9 @@
 struct AppContext;
 
 enum WsOPCodes{
-    CLIENT_REGISTER = 0,  // client asking server to register
+    CLIENT_REGISTER = 0,  // asking to register a client
     CLIENT_REGISTER_ACK, // PUBLIC_ID    // tell client if registered or not + public id sent
-    NEW_CLIENT_REGISTERED,  // tell master app a new client registered
+    NEW_CLIENT_REGISTERED,  // not using // tell master app a new client registered
 
     MASTER_APP_REGISTER, // master app asking to register
     MASTER_APP_REGISTER_ACK,    // send ack to master app telling if auth successful

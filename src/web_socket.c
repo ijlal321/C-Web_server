@@ -115,8 +115,11 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
                 return 1;  // 0 means close connection. we are not rn.
             }
             // TODO: Big : Name send.
-            cm_send_public_id_to_client(conn, client->public_id);
+            // cm_send_public_id_to_client(conn, client->public_id);
             cm_add_client_to_UI(&connection_mgr->master_app, client);
+            break;
+        case CLIENT_REGISTER_ACK:
+            cm_registered_client_send_ack(connection_mgr, ws_data);
             break;
         case APPROVE_CLIENT:
             res = cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved

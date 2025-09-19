@@ -2,37 +2,17 @@
 // =============== Imports  =============//
 import { WsOPCodes } from "./utils";
 import * as file_downloader from "./file_downloader.js";
-// ============= Global Vars - For Easier Access from other Fns  == //
-let ws_our_public_id = -1; // in deployment, better to make a shared state for easier access. this works too.
 
 // ========== Register callback functions for WebSocket events === //
 // ========== Function naming format: register...(Callback) ============= //
-let onPublicIdUpdate;
-export function registerOnPublicIdUpdate(callback) {
-    onPublicIdUpdate = callback;
-}
 
-let onApprovalStateChange;
-export function registerOnApprovalStateChange(callback) {
-    onApprovalStateChange = callback;
+let self_client, set_self_client, remote_clients, set_remote_clients;
+export function register_all_clients(_self_client, _set_self_client, _remote_clients, _set_remote_clients){
+    self_client = _self_client;
+    set_self_client = _set_self_client;
+    remote_clients = _remote_clients;
+    set_remote_clients = _set_remote_clients;
 }
-
-let onOurFilesUpdate;
-export function registerOnOurFilesUpdate(callback) {
-    onOurFilesUpdate = callback;
-}
-
-let onAvailableFilesUpdate;
-export function registerOnAvailableFilesUpdate(callback) {
-    onAvailableFilesUpdate = callback;
-}
-
-// Client Approval / Removal Fns
-let onClientAddUpdate;
-export function registerOnClientAddUpdate(callback) {
-    onClientAddUpdate = callback;
-}
-
 
 
 // ======================= WS Functionality / Event Registration ===================== //
@@ -65,7 +45,7 @@ export function init(private_id){
     ws.onmessage = function(event) {
         try {
             const msg = JSON.parse(event.data);
-            if (msg.opcode && msg.data){
+            if (typeof msg.opcode !== 'undefined' && msg.data){
                 handle_message(msg);
             }
         } catch (error) {
@@ -152,12 +132,15 @@ function handle_message(msg){
         case WsOPCodes.MASTER_APP_REGISTER_ACK:
             handle_master_app_registered_ack(data);
             break;
+        case WsOPCodes.CLIENT_REGISTER:
+            ws_register_client(data);
+            break;
         case WsOPCodes.CLIENT_REGISTER_ACK:
             ws_set_public_id(data);
             break;
-        case WsOPCodes.NEW_CLIENT_REGISTERED:
-            ws_add_client(data);
-            break;
+        // case WsOPCodes.NEW_CLIENT_REGISTERED:
+        //     ws_add_client(data);
+        //     break;
         case WsOPCodes.CLIENT_APPROVED:
             ws_set_approved_state(data, true);
             break;  
@@ -188,14 +171,39 @@ function handle_message(msg){
 
 }
 
+function ws_register_client(data){
+    if (data == null || data.public_id == null || data.public_name == null || data.approved == null )
+    {
+        console.error("M_APPCannot register client. incomplete data");
+        return;
+    }
+    // save client
+    add_or_update_client(data);
+    const all_files = get_all_files();
+
+    // notify client that its registered with its public id
+    ws.send(JSON.stringify({
+        opcode: WsOPCodes.CLIENT_REGISTER_ACK,
+        data: {
+            public_id: data.public_id,
+        },
+    }));
+    // ws.send(JSON.stringify({
+    //     opcode: NEW_CLIENT_REGISTERED,
+    //     data: {
+    //         public_id: data.public_id,
+    //         all_files
+    //     },
+    // }));
+}
+
 function handle_master_app_registered_ack(data){
-    if (!onPublicIdUpdate){
-        console.error("Client Logic Error: publicIdSetterCallback called before initialized");
+    if (!set_self_client){
+        console.error("Client Logic Error: set_self_client called before initialized");
         return;
     }
     if (data.public_id != null && data.public_id == 0){
-        onPublicIdUpdate(data.public_id); // mark as Master_APP
-        ws_our_public_id = data.public_id;
+        set_self_client(prev=> ({...prev, public_id: data.public_id})) // mark as Master_APP
     }else{
         console.error("Server Does Not Accept Us as Master App");
     }
@@ -207,12 +215,16 @@ function ws_set_public_id(data){
         console.error("Server Should Have Send Some Public ID.");
         return;
     }
-    if (onPublicIdUpdate == null){
+    if (set_self_client == null){
         console.error("Client Logic Error: publicIdSetterCallback called before initialized");
         return;
     }
-    ws_our_public_id = data.public_id;
-    onPublicIdUpdate(data.public_id);
+    if (self_client.public_id != -1){
+        console.error("Set Public ID: Hmm, it already has a valid public id. WHy send him ?");
+        return;     
+    }
+    self_client.public_id = data.public_id;
+    set_self_client((prev)=> ({...prev, public_id: data.public_id}))
 }
 
 function ws_set_approved_state(client, new_state){
@@ -220,17 +232,18 @@ function ws_set_approved_state(client, new_state){
         console.error("Change Approve State: Data from server Invalid or INcomplete");
         return;
     }
-    if (onApprovalStateChange == null){
-        console.error("Client Logic Error: approvedStateSetterCallback called before initialized");
+    if (self_client == null || remote_clients == null){
+        console.error("Client Logic Error: self_client or remote_clients called before initialized");
         return;
     }
-
     // check if the one being approved is us
-    if (client.public_id == ws_our_public_id){
-        onApprovalStateChange(new_state);
+    if (client.public_id == self_client.public_id){
+        set_self_client((prev=>({...prev, approved: new_state})));
         return;
-    }else{  // else update data of available clients
-        onClientAddUpdate({...client, approved: new_state});
+    }else{
+        // add or update new client
+        add_or_update_client(client);
+        console.log("other client updated");
     }
 }
 
@@ -328,8 +341,26 @@ function ws_add_client(data){
         console.error("Cannot Add Client: Invalid or incomplete information");
         return;
     }
+    
     onClientAddUpdate(data);
 
+}
+
+// ============== Data related helper funxtions
+
+function add_or_update_client(client){
+    // find existing client
+    const existing_client = Object.entries(remote_clients).find(c=> c.public_id == client.public_id);
+    if (!existing_client){
+        set_remote_clients(prev=> ({...prev, [client.public_id]: client}));
+        return;
+    }
+    set_remote_clients(prev =>({...prev, [client.public_id]: {...existing_client, ...client}}))
+}
+
+function get_all_files(){
+    const all_files = {...remote_clients, [self_client.public_id]: self_client};
+    return all_files;
 }
 
 // =====================  WS Helper FN ============ //
