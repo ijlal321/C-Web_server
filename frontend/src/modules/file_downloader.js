@@ -224,7 +224,7 @@ function store_downloaded_chunk_blob(owner_public_id, file_id, start_pos, size, 
         // full file has been downloaded
         console.log("FULL FILE DOWNLOADED. File: ", downloading_file);
         console.log("total chunks: ", Object.keys(downloading_file.chunks_by_start_pos).length);
-        joinChunksToBlob(downloading_file); // NO UNNECESSARY DOWNLOADING
+        // joinChunksToBlob(downloading_file); // NO UNNECESSARY DOWNLOADING
         if (queuedFileDownloads.length != 0){
             const next_file_to_download = queuedFileDownloads.shift();
             allocate_chunk_resource_smartly(next_file_to_download[0], next_file_to_download[1]);

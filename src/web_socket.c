@@ -102,6 +102,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     switch (op) {
         case MASTER_APP_REGISTER:
             res = cm_register_master_app(connection_mgr, conn);
+            // TODO: Send client the list of clients waiting for approval or if some connect before it. use cm_send_public_id_to_client();
             cm_send_master_app_registered_ack(&connection_mgr->server, res);
             break;
         case CLIENT_REGISTER:
@@ -128,36 +129,14 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             }
             break;
         case ADD_FILES:
-            /// Note: Duplicate FIle ID will be Ignored. Client is expected to do same.
-            // res = cm_add_files(connection_mgr, ws_data);
-            // if (res == 0){
-                cm_broadcast_new_file(connection_mgr, ws_data);
-                printf("Handling ADD_FILES\n");
-            // }
-            break;
-        case REMOVE_FILE:
-            // Handle removing files from client files
-            /// TODO: File is Being transfered.
-            // cm_remove_files(connection_mgr, ws_data);
-            cm_broadcast_remove_file(connection_mgr, ws_data);
-            // cm_remove_files_from_UI(&connection_mgr->server, root);
-            printf("Handling REMOVE_FILE\n");
-            break;
-        /*case UI_ADD_FILES:
-            // Handle Adding new files in client files
-            /// TODO: finalize CLINT_ADD_FILE, then copy it here
-            cm_server_add_files(connection_mgr, ws_data);
-            cm_send_files_to_client(connection_mgr, root);
+            /// Note: Duplicate FIle ID will be Ignored. Client is expected to do this.
+            cm_broadcast_new_file(connection_mgr, ws_data);
             printf("Handling ADD_FILES\n");
             break;
-        case UI_REMOVE_FILE:
-            // Handle removing files from client files
-            /// TODO: finalize CLINT_REMOVE_FILE, then copy it here
-            cm_remove_server_files(connection_mgr, ws_data);
-            cm_remove_files_from_clients(connection_mgr, root);
+        case REMOVE_FILE:
+            cm_broadcast_remove_file(connection_mgr, ws_data);
             printf("Handling REMOVE_FILE\n");
             break;
-            */
         case REQUEST_CHUNK:
             chunk_request_manage(app_ctx , ws_data, conn);
             printf("Handling REQUEST CHUNK\n");

@@ -44,6 +44,9 @@ void * start_connections(void * args){
     return NULL;
 }
 
+
+//  CLIENT REGISTRATION
+
 struct Client * cm_add_client(struct ConnectionManager * connection_mgr, struct mg_connection *conn, const cJSON *data){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
 
@@ -77,13 +80,13 @@ void cm_send_public_id_to_client(struct mg_connection * conn, int public_id){
     mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
 
-
 void cm_add_client_to_UI(struct Server * server, struct Client * client){
     char buffer[256];
     sprintf(buffer, "{\"opcode\":%d, \"data\":{\"public_id\":%d, \"approved\":%d, \"public_name\":\"%s\"}}", NEW_CLIENT_REGISTERED , client->public_id, client->approved, client->public_name);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
 
+//  MASTER APP REGISTRATION
 
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
     pthread_rwlock_wrlock(&connection_mgr->rwlock);
@@ -108,6 +111,8 @@ void cm_send_master_app_registered_ack(struct Server * server, int res){
     sprintf(buffer, "{\"opcode\":%d , \"data\":{\"public_id\": %d}}", MASTER_APP_REGISTER_ACK, 0);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
 }
+
+//  CLIENT APPROVAL / DISAPPROVAL
 
 /**
  * @return 0 on success. else error.
@@ -180,120 +185,9 @@ end:
     return;
 }
 
-int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    int error = 0; // false
-    // Get public_id and file_count from data.
-    int public_id, file_count;    
-    if (j2d_get_int(ws_data, "public_id", &public_id) != 0 || j2d_get_int(ws_data, "file_count", &file_count) != 0){
-        printf("Cannot add files - No public_id or file_count was found in message.\n");
-        return 1;
-    }
-    
 
-    // Lock the connection Manager to get Client.
-    printf("public_id = %d, file_count = %d\n", public_id, file_count);
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+//   FILE MANAGEMENT
 
-    union FilesOwner{
-        struct Client * client;
-        struct Server * server;
-    };
-    union FilesOwner file_owner;
-
-    if (public_id == 0){
-        file_owner.server = &connection_mgr->server;
-    }else{
-        // Find Client by Public_ID
-        struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
-        if (client == NULL){
-            printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
-            error = 1;
-            goto end;
-        }
-        file_owner.client = client;
-    }
-    
-    // Get array of Files Object
-    const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
-    if (files_obj == NULL){
-        printf("Cannot Add Files - No files data found\n");
-        error = 1;
-        goto end;   
-    }
-    if (public_id == 0){
-        pthread_rwlock_wrlock(&file_owner.server->rwlock);
-    }else{
-        pthread_rwlock_wrlock(&file_owner.client->rwlock);
-    }
-
-    for (int i = 0; i < file_count; i++) {
-        // get current file
-        cJSON *file = cJSON_GetArrayItem(files_obj, i);
-        if (file == NULL){
-            continue;
-        }
-
-        // get file fields
-        const char *name = j2d_get_string(file, "name");  
-        const char *type = j2d_get_string(file, "type");  
-        int id;
-        size_t size;
-        // Fields CHecking. IMP: Name can be empty.
-        if (j2d_get_int(file, "id", &id) != 0 || j2d_get_size_t(file, "size", &size) != 0 || type == NULL){
-            printf("Canonot Add Filed - Incomplete Fields.\n");
-            continue;
-        }
-        // create new file
-        struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
-        strncpy(new_file->name, name, sizeof(new_file->name)); // copy name
-        new_file->name[sizeof(new_file->name)-1] = '\0';        // safe file name null terminator
-        strncpy(new_file->type, type, sizeof(new_file->type));  // copy type
-        new_file->type[sizeof(new_file->type)-1] = '\0';  // safe null check
-        new_file->size = size;  // copy size
-        new_file->id = id;  // copy id
-
-        new_file->is_transfering = 0; 
-        pthread_rwlock_init(&new_file->rw_lock, NULL);
-
-        struct File *existing_file = NULL;
-        if (public_id == 0){
-            HASH_FIND_INT(file_owner.server->files, &id, existing_file);
-        }else{
-            HASH_FIND_INT(file_owner.client->files, &id, existing_file);
-        }
-        // Ignore if Duplicate File ID
-        if (existing_file != NULL) {
-            printf("File with id %d already exists for client %d. Skipping.\n", id, public_id);
-            free(new_file);
-            continue;
-        }
-
-        // add to hashmap
-        // printf("clinet-> files: %d, id: %d, new_file: %d", client->files == NULL ? 0 : 1, id, new_file == NULL ? 0 : 1);
-        if (public_id == 0){
-            HASH_ADD_INT(file_owner.server->files, id, new_file);
-        }else{
-            HASH_ADD_INT(file_owner.client->files, id, new_file);
-        }
-    }
-    if (public_id == 0){
-        pthread_rwlock_unlock(&file_owner.server->rwlock);
-    }else{
-        pthread_rwlock_unlock(&file_owner.client->rwlock);
-    }
-end:
-    pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return error;
-}
-
-
-void cm_send_files_to_UI(struct Server * server, const cJSON * ws_data){
-    char * string_to_send = cJSON_PrintUnformatted(ws_data);
-    printf("data being sent to ui is: %s \n", string_to_send); 
-    mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send)); 
-    free(string_to_send);   
-    return;
-}
 
 void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
     // ws_data contains full data without opcodes
@@ -318,137 +212,6 @@ void cm_broadcast_remove_file(struct ConnectionManager * connection_mgr, const c
     free(data_string);
     return;
 }
-
-
-void cm_remove_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    // Get public_id and file_id from data.
-    int public_id, file_id;    
-    if (j2d_get_int(ws_data, "public_id", &public_id) != 0 || j2d_get_int(ws_data, "file_id", &file_id) != 0){
-        printf("Cannot add files - No public_id or file_id was found in message.\n");
-        return;
-    }
-    
-
-    // Lock the connection Manager to get Client.
-    printf("public_id = %d, file_id = %d\n", public_id, file_id);
-    pthread_rwlock_rdlock(&connection_mgr->rwlock);
-
-    // Find Client by Public_ID
-    struct Client * client = client_find_by_public_id(connection_mgr->clients, public_id);
-    if (client == NULL){
-        printf("Cannot Add Files - No CLient with Public_id: %d \n", public_id);
-        goto end;
-    }
-
-    pthread_rwlock_wrlock(&client->rwlock);
-    struct File * cur_file = NULL;
-    HASH_FIND_INT(client->files, &file_id, cur_file);
-    HASH_DEL(client->files, cur_file);
-    free(cur_file);
-    printf("file removed\n");
-    pthread_rwlock_unlock(&client->rwlock);
-
-end:
-    pthread_rwlock_unlock(&connection_mgr->rwlock);
-    return;
-}
-
-
-void cm_remove_files_from_UI(struct Server * server, const cJSON * ws_data){
-    char * string_to_send = cJSON_PrintUnformatted(ws_data);
-    printf("data being sent to ui is: %s \n", string_to_send); 
-    mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send)); 
-    free(string_to_send);   
-    return;
-}
-
-
-void cm_server_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-
-    int file_count = cJSON_GetObjectItem(ws_data, "file_count")->valueint;
-    printf("file_count = %d\n", file_count);
-
-    struct Server * server = &connection_mgr->server;
-
-    const cJSON * files_obj = cJSON_GetObjectItem(ws_data, "files");
-
-    for (int i = 0; i < file_count; i++) {
-        struct File * new_file = (struct File *)calloc(1, sizeof(struct File));
-        cJSON *file = cJSON_GetArrayItem(files_obj, i);
-        
-        const char *name = cJSON_GetObjectItem(file, "name")->valuestring;
-        int size = cJSON_GetObjectItem(file, "size")->valueint;
-        const char *type = cJSON_GetObjectItem(file, "type")->valuestring;
-        int id = cJSON_GetObjectItem(file, "id")->valueint;
-        
-        printf("File %d:\n", i + 1);
-        strncpy(new_file->name, name, sizeof(new_file->name));
-        printf("  Name: %s\n", name);
-        new_file->size = size;
-        printf("  Size: %d\n", size);
-        strncpy(new_file->type, type, sizeof(new_file->type));
-        printf("  Type: %s\n", type);
-        new_file->id = id;
-        printf("  ID:   %d\n", id);
-
-        new_file->is_transfering = 0;
-        pthread_rwlock_init(&new_file->rw_lock, NULL);
-        HASH_ADD_INT(server->files, id, new_file);
-    }
-
-    return;
-}
-
-void cm_send_files_to_client(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    {
-        pthread_rwlock_rdlock(&connection_mgr->rwlock);
-        char * string_to_send = cJSON_PrintUnformatted(ws_data);
-        printf("data being sent to client is: %s \n", string_to_send); 
-        struct Client *cur, *temp;  
-        HASH_ITER(hh, connection_mgr->clients, cur, temp ){
-            mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send));
-        }
-        free(string_to_send);   
-        pthread_rwlock_unlock(&connection_mgr->rwlock);
-        return;
-    }
- 
-}
-
-
-
-
-void cm_remove_server_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    pthread_rwlock_rdlock(&connection_mgr->server.rwlock);
-    int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint;
-    int file_id = cJSON_GetObjectItem(ws_data, "file_id")->valueint;
-    printf("public_id = %d, file_count = %d\n", public_id, file_id);
-
-
-    struct File * cur_file = NULL;
-    HASH_FIND_INT(connection_mgr->server.files, &file_id, cur_file);
-    HASH_DEL(connection_mgr->server.files, cur_file);
-    free(cur_file);
-    printf("file removed\n");
-
-    pthread_rwlock_unlock(&connection_mgr->server.rwlock);
-    return;
-}
-
-
-void cm_remove_files_from_clients(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    char * string_to_send = cJSON_PrintUnformatted(ws_data);
-    printf("data being sent to ui is: %s \n", string_to_send);
-    struct Client *cur, *temp;   
-    HASH_ITER(hh, connection_mgr->clients, cur, temp ){
-        mg_websocket_write(cur->conn, MG_WEBSOCKET_OPCODE_TEXT, string_to_send, strlen(string_to_send));
-        // free(cur); 
-    }
-    free(string_to_send);   
-    return;
-}
-
-
 
 
 

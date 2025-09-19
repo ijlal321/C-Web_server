@@ -170,18 +170,18 @@ function handle_message(msg){
         case WsOPCodes.FILE_REMOVED:
             ws_remove_available_files(data);   // Trick right here. need proper opcodes here.
             break;
-        case WsOPCodes.SERVER_UPLOAD_CHUNK:
+        case WsOPCodes.REQUEST_CHUNK_UPLOAD:
             ws_upload_chunk(data)
             break;
-        case WsOPCodes.SERVER_CHUNK_READY:
+        case WsOPCodes.CHUNK_READY:
             ws_download_chunk(data);
             break;
-        case WsOPCodes.UI_REMOVE_FILE:
-            ws_remove_available_file(data);
-            break;
-        case WsOPCodes.ADD_CLIENT:  // unused i think
-            ws_add_client(data);
-            break;
+        // case WsOPCodes.UI_REMOVE_FILE:
+        //     ws_remove_available_file(data);
+        //     break;
+        // case WsOPCodes.ADD_CLIENT:  // unused i think
+        //     ws_add_client(data);
+        //     break;
         default:
             console.warn("Unknown Opcode Received: ", opcode);
     }

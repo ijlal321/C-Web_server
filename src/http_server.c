@@ -161,7 +161,7 @@ static int UploadChunkHandler(struct mg_connection *conn, void *cbdata) {
         }
         if (target_conn) {
             char buffer[300];
-            sprintf(buffer, "{\"opcode\":%d, \"data\":{\"owner_public_id\":%d, \"file_id\":%d, \"start_pos\":%zu, \"size\":%zu}}", SERVER_CHUNK_READY, owner_public_id, file_id, start_pos, size);
+            sprintf(buffer, "{\"opcode\":%d, \"data\":{\"owner_public_id\":%d, \"file_id\":%d, \"start_pos\":%zu, \"size\":%zu}}", CHUNK_READY, owner_public_id, file_id, start_pos, size);
             int write_res = mg_websocket_write(target_conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));
             printf("Ready Signal Sent to Client %d with res: %d\n", entry->public_id, write_res);
         }

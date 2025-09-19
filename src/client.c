@@ -24,7 +24,7 @@ struct Client * client_create_new(const char * private_id, int public_id, const 
     new_client->conn = conn;
     new_client->approved = 0;
     new_client->public_id = public_id;
-    new_client->files = NULL;
+
     int res = pthread_rwlock_init(&new_client->rwlock, NULL);
     if (res != 0){
         printf("Failed to Initiate rw_lock for new client. Closing Connection.\n");

@@ -10,7 +10,7 @@
 struct ConnectionManager{
     struct Client * clients;
     struct Server server;
-    pthread_rwlock_t rwlock;
+    pthread_rwlock_t rwlock;  // for managing clients.
 };
 
 void cm_init(struct ConnectionManager * connection_mgr);
