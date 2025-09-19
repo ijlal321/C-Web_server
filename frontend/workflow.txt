@@ -26,7 +26,7 @@ someone asks a chunk -> REQUEST_CHUNK
 
 // =================== WHAT AM I DOING RN =============== //
   GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
-convert 3 tier files in client to 1;
+convert 3 tier files in client to 1;   // Do in flutter, not here
 
 when master_app connects -> (first time), server send all clients, so master app can show and approve later
 
