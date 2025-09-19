@@ -86,7 +86,7 @@ end:
 //cheat one  // errors, need to be in same format as original
 void chunk_request_cheat(struct AppContext * app_ctx , const cJSON * ws_data, struct mg_connection *conn){
     struct ChunkManager * chunk_mgr = &app_ctx->chunk_mgr;
-    struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
+    // struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;  // not using
     // {opcode: 12, data: {sender_public_id:_, public_id:_ , file_id: _, chunk_id}}
     int sender_public_id = cJSON_GetObjectItem(ws_data, "sender_public_id")->valueint;
     int public_id = cJSON_GetObjectItem(ws_data, "public_id")->valueint; // public id of target

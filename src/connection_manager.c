@@ -107,6 +107,9 @@ int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_
 }
 
 void cm_send_master_app_registered_ack(struct MasterApp * server, int res){
+    // use res to find if registered or not
+    (void)res;  // for warning unsed vars
+    
     char buffer[128];
     sprintf(buffer, "{\"opcode\":%d , \"data\":{\"public_id\": %d}}", MASTER_APP_REGISTER_ACK, 0);
     mg_websocket_write(server->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));

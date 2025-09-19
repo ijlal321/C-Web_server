@@ -37,6 +37,8 @@ struct mg_context * http_initialize_server() {
 // Handler for '/'
 // Serves the contents of "static.html" as the response
 static int RootHandler(struct mg_connection *conn, void *cbdata) {
+    (void)cbdata; // for warning unused vars
+
     FILE *f = fopen(HTML_CLIENT_FILE, "rb");
     if (!f) {
         printf("file not found\n");
@@ -236,4 +238,5 @@ void http_init_handlers(struct mg_context * cw_ctx, struct AppContext * app_ctx)
     mg_set_request_handler(cw_ctx, "/upload_chunk", UploadChunkHandler, app_ctx);
     mg_set_request_handler(cw_ctx, "/download_chunk", DownloadChunkHandler, app_ctx);
     // mg_set_request_handler(cw_ctx, "**", RootHandler, 0); // router all paths to default one. In case user put something else in navbar.
+    (void)RootHandler;  // for warning unsed vars
 }

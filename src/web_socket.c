@@ -56,6 +56,8 @@ struct WsMsgHeader ws_get_msg_headers(cJSON *root);
 // ================= WS HANDLERS ===============
 
 int ws_connect(const struct mg_connection *conn, void *cbdata) {
+    (void)conn;  // for warning unsed vars
+    (void)cbdata;
 
     // accept all connections
     return 0;
@@ -64,7 +66,9 @@ int ws_connect(const struct mg_connection *conn, void *cbdata) {
 }
 
 void ws_ready(struct mg_connection *conn, void *cbdata) {
-
+    (void)conn;  // for warning unsed vars
+    (void)cbdata;
+    
     // send a new clientId to client
     // mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, msg, strlen(msg));
     
@@ -164,6 +168,8 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
 }
 
 void ws_close(const struct mg_connection *conn, void *cbdata) {
+    (void)conn;  // for warning unsed vars
+    
     struct AppContext *app_ctx = (struct AppContext *)cbdata;
     struct ConnectionManager * connection_mgr = &app_ctx->connection_mgr;
 
