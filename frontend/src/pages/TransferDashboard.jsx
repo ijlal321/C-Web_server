@@ -3,14 +3,37 @@ import * as web_socket from "../modules/web_socket.js";
 import * as utils from "../modules/utils.js";
 import * as file_downloader from "../modules/file_downloader.js"
 
-const TransferDashboard = ({our_files, set_our_files, available_files, set_available_files}) => {
+const TransferDashboard = ({self_client, set_self_client, remote_clients, set_remote_clients}) => {
     let fileIdCounter = 1; // for assigning ID to files.
     const [download_status, set_download_status] = useState({speed:"NA", parallel_chunks:"", chink_size:"", time_took:0});
+    const temp_file_map = {};
+    const file_map = {};
+
+    const available_files = {};
 
     useEffect(()=>{
         file_downloader.registerOnDownloadStatusUpdate(set_download_status);
         file_downloader.register_get_file_blob(get_file_blob);
+        web_socket.registerOnTransferIdReceived(onTransferIdReceived);
     });
+
+    const onTransferIdReceived = (transfer_id, files) => {
+        if (transfer_id == null || temp_file_map[transfer_id] == null){
+            console.error("Cannot Add files. Maybe done before already ?");
+            return;
+        }
+        if (file_map[transfer_id]){
+            console.error("It should not have happened. ");
+            return;
+        }
+
+        file_map[transfer_id] = {};
+        Object.entries(temp_file_map[transfer_id]).forEach(([file_id, file]) => {
+            file_map[transfer_id][file_id] = file;
+        })
+
+        delete temp_file_map[transfer_id];
+    }
 
     const get_file_blob =(owner_public_id, file_id, start_pos, size) =>{
         const file = our_files.find(f => f.id == file_id);
@@ -35,7 +58,10 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
         if (!files || files.length === 0) return;
 
         // remove duplicates (if any)
-        const newFiles = utils.get_unique_files(our_files, files);
+        const newFiles = utils.get_unique_files(self_client.files, files);
+        if (newFiles.length == 0){
+            return;
+        }
 
         // convert new files to list with new ID
         const newFilesArr = newFiles.map(f => ({
@@ -46,19 +72,19 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
             file: f,
         }));
 
+        // saves new files blob to temp map
+        const transfer_id = utils.generate_small_id();
+        temp_file_map[transfer_id] = {time: Date.now(), files: {}}
+        newFilesArr.forEach(file=>  temp_file_map[transfer_id][file.id] = file);
+
         // send new files (without file blob) to ws
         const new_files_without_blob = newFilesArr.map(({file, ...rest}) => rest)
-        const res = web_socket.send_files_to_server(new_files_without_blob);
+        const res = web_socket.send_files_to_server(new_files_without_blob, transfer_id);
         if (res == false){
-            // data send to ws failed. no updating UI files
-            return;
+            // remove temp file with transfer id
+            delete temp_file_map[transfer_id];
         }
-
-        // add new files to UI
-        set_our_files((prev) => {
-            return [...prev, ...newFilesArr];
-        });
-
+        
     }
 
     const handle_file_remove = (file_id, file_index) => {
@@ -93,7 +119,7 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
             <div style={{ border: "dotted black 2px", borderRadius: "10px", padding: "10px", margin: "20px" }}> {/* upload file section */}
                 <h2>Uploaded Files</h2>
                 {/* show our files */}
-                {our_files.map((f, idx) => (
+                {Object.entries(self_client.files).map(([file_id, f], idx) => (
                     <div key={idx}>
                         <p>
                             <b>{idx + 1}: {f.name}</b> <br /> Type: {f.type} <br /> Size: {f.size}  <br />
@@ -102,6 +128,7 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                     </div>
                 ))}
             </div>
+            
             <div style={{ border: "dotted black 2px", borderRadius: "10px", padding: "10px", margin: "20px" }}> {/* upload file section */}
                 <h2>Available Files</h2>
                 {/* show Public Available files */}
@@ -124,6 +151,7 @@ const TransferDashboard = ({our_files, set_our_files, available_files, set_avail
                 <button onClick={()=>console.log(available_files)}>Log Available Files</button>
                 <button onClick={()=>console.log(our_files)}>Log Our Files</button>
             </div>
+            
             <div>
                 {/*download_status:  speed:"", parallel_chunks:"", chink_size:"", time_took */}
                 Download_SPeed: {download_status.speed ? download_status.speed: "0 B/s"} <br/>

@@ -14,6 +14,11 @@ export function register_all_clients(_self_client, _set_self_client, _remote_cli
     set_remote_clients = _set_remote_clients;
 }
 
+let onTransferIdReceived;
+export function registerOnTransferIdReceived(callback) {
+    onTransferIdReceived = callback;
+}
+
 
 // ======================= WS Functionality / Event Registration ===================== //
 let ws;
@@ -55,20 +60,37 @@ export function init(private_id){
 }
 
 // ================== HANDLING WS Out Going MESSAGES ======================== //
-export function send_files_to_server(files){
+export function send_files_to_server(files, transfer_id){
     if (is_ws_ready_to_send_msg() == false) return false;
     if (!files || files.length === 0) return false;
     
+
+    if (files.public_id == 0){  // dont send ws message then
+        files.forEach(file => {
+            self_client[files][file.file_id] = file; // file dont have blob. We already know
+        });
+        set_self_client(self_client);
+
+        // send files added message to server
+        ws.send(JSON.stringify({
+            opcode: WsOPCodes.FILES_ADDED,
+            data,
+        }))
+        return;
+    }
 
     // Send new files to websocket
     ws.send(JSON.stringify({
         opcode: WsOPCodes.ADD_FILES,
         data: {
-            public_id: ws_our_public_id,
+            public_id: self_client.public_id,
             file_count: files.length,
+            transfer_id,
             files,
         }
     }));
+
+    // TODO: update self client local var one here ? 
     return true;
 }
 
@@ -79,7 +101,7 @@ export function remove_file_from_server(file_id){
     ws.send(JSON.stringify({
         opcode: WsOPCodes.REMOVE_FILE,
         data: {
-            public_id: ws_our_public_id,
+            public_id: self_client.public_id,
             file_id: file_id
         }
     }));
@@ -87,14 +109,14 @@ export function remove_file_from_server(file_id){
 }
 
 export function request_chunk(owner_public_id, file_id, start_pos, size) {
-    if (is_ws_ready_to_send_msg() == false || ws_our_public_id == -1) {
+    if (is_ws_ready_to_send_msg() == false || self_client.public_id == -1) {
         console.error("websocket not ready to send messages, fix");
         return;
     }
     ws.send(JSON.stringify({
         opcode: WsOPCodes.REQUEST_CHUNK,
         data: {
-            sender_public_id: ws_our_public_id,
+            sender_public_id: self_client.public_id,
             owner_public_id: owner_public_id,
             file_id: file_id,
             start_pos,
@@ -147,8 +169,12 @@ function handle_message(msg){
         case WsOPCodes.CLIENT_DIS_APPROVED:
             ws_set_approved_state(data, false);
             break;  
+        case WsOPCodes.ADD_FILES:
+            // only Master App
+            ws_master_app_approve_new_files(data);
+            break;
         case WsOPCodes.FILES_ADDED:
-            ws_add_available_files(data);
+            ws_new_files_add(data);
             break;
         case WsOPCodes.FILE_REMOVED:
             ws_remove_available_files(data);   // Trick right here. need proper opcodes here.
@@ -179,7 +205,7 @@ function ws_register_client(data){
     }
     // save client
     add_or_update_client(data);
-    const all_files = get_all_files();
+    // const all_files = get_all_files();
 
     // notify client that its registered with its public id
     ws.send(JSON.stringify({
@@ -204,11 +230,11 @@ function handle_master_app_registered_ack(data){
     }
     if (data.public_id != null && data.public_id == 0){
         set_self_client(prev=> ({...prev, public_id: data.public_id})) // mark as Master_APP
+        self_client.public_id = data.public_id;
     }else{
         console.error("Server Does Not Accept Us as Master App");
     }
 }
-
 
 function ws_set_public_id(data){
     if (!data.public_id){
@@ -223,8 +249,9 @@ function ws_set_public_id(data){
         console.error("Set Public ID: Hmm, it already has a valid public id. WHy send him ?");
         return;     
     }
-    self_client.public_id = data.public_id;
+    console.log("public id updated: ", data.public_id);
     set_self_client((prev)=> ({...prev, public_id: data.public_id}))
+    self_client.public_id = data.public_id;
 }
 
 function ws_set_approved_state(client, new_state){
@@ -236,9 +263,11 @@ function ws_set_approved_state(client, new_state){
         console.error("Client Logic Error: self_client or remote_clients called before initialized");
         return;
     }
+    console.log("Our public ID: ", self_client.public_id, " and incoming public id: ", client.public_id);
     // check if the one being approved is us
     if (client.public_id == self_client.public_id){
         set_self_client((prev=>({...prev, approved: new_state})));
+        self_client.approved = new_state;
         return;
     }else{
         // add or update new client
@@ -247,26 +276,51 @@ function ws_set_approved_state(client, new_state){
     }
 }
 
-function ws_add_available_files(data){
-    if (onAvailableFilesUpdate == null){
-        console.error("Client Logic Error: onAvailableFilesUpdate called before initialized");
+function ws_master_app_approve_new_files(data){
+    if (!data || typeof data.public_id == 'undefined' || !Array.isArray(data.files)) {
+        console.log("Add Available FIles: Data from server Invalid or INcomplete");
+        return;
+    }
+    if (!remote_clients[data.public_id]){
+        console.error("Add files for a client not added yet");
+        return;
+    }
+    data.files.forEach(file => {
+        remote_clients[data.public_id][file.file_id] = file; // file dont have blob. We already know
+    });
+    set_remote_clients(remote_clients);
+
+    // send files added message to server
+    ws.send(JSON.stringify({
+        opcode: WsOPCodes.FILES_ADDED,
+        data,
+    }))
+}
+
+function ws_new_files_add(data){
+    if (self_client.public_id == 0){
+        return;  // master app has already added app
+    }
+    if (set_remote_clients == null){
+        console.error("Client Logic Error: set_remote_clients called before initialized");
         return;
     }
     if (!data || typeof data.public_id == 'undefined' || !Array.isArray(data.files)) {
         console.log("Add Available FIles: Data from server Invalid or INcomplete");
         return;
     }
-    if (data.public_id == ws_our_public_id){
-        return; // not for us.
+    if (data.public_id == self_client.public_id){
+        onTransferIdReceived(data.transfer_id, data.files)
+        return;
     }
-    onAvailableFilesUpdate(prev => {
-        const updated = { ...prev };
-        if (!updated[data.public_id]) {
-            updated[data.public_id] = [];
-        }
-        updated[data.public_id] = updated[data.public_id].concat(data.files);
-        return updated;
+    if (!remote_clients[data.public_id]){
+        console.error("Add files for a client not added yet");
+        return;
+    }
+    data.files.forEach(file => {
+        remote_clients[data.public_id][file.file_id] = file; // file dont have blob. We already know
     });
+    set_remote_clients(remote_clients);
 }
 
 function ws_remove_available_files(data){
@@ -280,7 +334,7 @@ function ws_remove_available_files(data){
         console.log("Add Available FIles: Data from server Invalid or INcomplete");
         return;
     }
-    if (data.public_id == ws_our_public_id){
+    if (data.public_id == self_client.public_id){
         return; // not for us.
     }
     onAvailableFilesUpdate(prev => {
@@ -350,12 +404,15 @@ function ws_add_client(data){
 
 function add_or_update_client(client){
     // find existing client
-    const existing_client = Object.entries(remote_clients).find(c=> c.public_id == client.public_id);
+    const existing_client = remote_clients[client.public_id];
     if (!existing_client){
         set_remote_clients(prev=> ({...prev, [client.public_id]: client}));
+        remote_clients[client.public_id] = client;
+        console.log("new client added successfully");
         return;
     }
-    set_remote_clients(prev =>({...prev, [client.public_id]: {...existing_client, ...client}}))
+    set_remote_clients(prev =>({...prev, [client.public_id]: {...existing_client, ...client}}));
+    remote_clients[client.public_id] = {...existing_client, ...client};
 }
 
 function get_all_files(){
@@ -370,7 +427,7 @@ function is_ws_ready_to_send_msg(){
         console.log("Cannot Send Files. Websocket State is Not Open yet.");
         return false;
     }
-    if (ws_our_public_id == -1){
+    if (self_client.public_id == -1){
         console.log("Cannot Send Files. Websocket State Not connected yet.");
         return false;
     }
@@ -378,7 +435,7 @@ function is_ws_ready_to_send_msg(){
 }
 
 function only_server(){
-    if (ws_our_public_id == 0){
+    if (self_client.public_id == 0){
         return true;
     }
     return false;

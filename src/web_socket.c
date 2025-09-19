@@ -138,7 +138,11 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         case ADD_FILES:
             /// Note: Duplicate FIle ID will be Ignored. Client is expected to do this.
             cm_broadcast_new_file(connection_mgr, ws_data);
+            cm_send_files_to_master_app(connection_mgr, ws_data);
             printf("Handling ADD_FILES\n");
+            break;
+        case FILES_ADDED:
+            // use above broadcast file
             break;
         case REMOVE_FILE:
             cm_broadcast_remove_file(connection_mgr, ws_data);

@@ -57,6 +57,10 @@ export function generateRandomId() {
     return Array.from(arr, b => b.toString(16).padStart(2, '0')).join('');
 }
 
+export function generate_small_id(){
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export function get_key_from_file(file){
   return `${file.name}_${file.size}`;
 }
@@ -64,7 +68,7 @@ export function get_key_from_file(file){
 
 export function get_unique_files(old_files, new_files){
     // remove duplicate files
-    const existing = new Set(old_files.map(f => get_key_from_file(f)));
+    const existing = new Set(Object.entries(old_files).map((_, f) => get_key_from_file(f)));
     const uniqueFiles = Array.from(new_files).filter(f => !existing.has(get_key_from_file(f)));
 
     return uniqueFiles;

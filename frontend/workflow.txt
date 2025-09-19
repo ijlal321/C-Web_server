@@ -26,7 +26,25 @@ someone asks a chunk -> REQUEST_CHUNK
 
 // =================== WHAT AM I DOING RN =============== //
   GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
-convert 3 tier files in client to 1;   // Do in flutter, not here
+
+    client sent files
+    server forward to MA
+    MA -> files_added to server
+    
+
+  add files: server selects files, [duplicates removed]
+    store blob in temp  
+    send files to server [with a unique id]
+    server send to master_app
+    master_app store new files metadata, [ignore any duplicates, bcz there wont be any],
+      and send to server, whcih will broadcast to all clients
+    [if sender client dont get a response within x sec, it will retry sending].
+    original client when get it,
+      matches unique id
+      store new files in another map
+      remove blob files that server rejects
+
+    after x second, if sender client dont get a response, then remove files + blobs completely
 
 when master_app connects -> (first time), server send all clients, so master app can show and approve later
 

@@ -12,16 +12,10 @@ function App() {
   const [our_files, set_our_files] = useState([]);  // files available on this device [uploaded by user]
   const [available_files, set_available_files] = useState({});  // files available on other devices
 
-  const [self_client, set_self_client] = useState({public_id:-1, public_name:"name here", approved: false, files:[]});
+  const [self_client, set_self_client] = useState({public_id:-1, public_name:"name here", approved: false, files:{}});
   const [remote_clients, set_remote_clients] = useState({});
   const [private_id, set_private_id] = useState();
   useEffect(()=>{
-    // setting setter functions
-    // web_socket.registerOnPublicIdUpdate(set_public_id);
-    // web_socket.registerOnApprovalStateChange(set_is_approved);
-    // web_socket.registerOnOurFilesUpdate(set_our_files);
-    // web_socket.registerOnAvailableFilesUpdate(set_available_files);
-
     web_socket.register_all_clients(self_client, set_self_client, remote_clients, set_remote_clients);
 
     // init websocket
@@ -53,7 +47,7 @@ function App() {
         {self_client.public_id == 0 && 
           <ClientApproval remote_clients={remote_clients} set_remote_clients={set_remote_clients}  />
         }
-        {/* <TransferDashboard self_client={self_client} set_self_client={set_self_client} remote_clients={remote_clients} set_remote_clients={set_remote_clients} */}
+        <TransferDashboard self_client={self_client} set_self_client={set_self_client} remote_clients={remote_clients} set_remote_clients={set_remote_clients} />
       </div>
     </>
   )
