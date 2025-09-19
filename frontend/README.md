@@ -4,10 +4,10 @@ How to use
 
 .
 goto frontend folder.
-change env var mode to client
+change env var mode to master_app
 pnpm run build
-    // this will give client frontend to c server
-change env to master_app
+    // this will give master_app frontend to c server
+change env to client
 pnpm run dev
 
 go outside
@@ -15,7 +15,7 @@ make run
 
 
 now your both apps are running
-8080 -> client + c server
-4000 -> master app
+8080 -> master app + c server
+4000 -> client
 
 also you will need to change websocket, see comments in .env of frontend

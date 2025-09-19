@@ -314,7 +314,6 @@ function ws_download_chunk(data){
 }
 
 function ws_upload_chunk(data){
-    console.log("Server is Asking to Download CHunk. Functionality We Have Not Implemented Yet");
     const {owner_public_id, file_id, start_pos, size} = data;
     if (!owner_public_id == null || file_id == null || start_pos == null || size == null){
         console.error("Chunk Upload Error: Invalid Or Inccomplete Data");

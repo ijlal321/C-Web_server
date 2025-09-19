@@ -25,6 +25,21 @@ someone asks a chunk -> REQUEST_CHUNK
 
 
 // =================== WHAT AM I DOING RN =============== //
+  GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
+convert 3 tier files in client to 1;
+
+when master_app connects -> (first time), server send all clients, so master app can show and approve later
+
+if master app disconnects, ws just ignore all ws messages. no communication till masterapp returns. 
+  or maybe we should close our ws connection entirely, so no one send anything else
+  or maybe we should just stop ws, but keep allow http
+
+reconnect -> if a client disconnects, then set public_id to null; thus show connecting page.
+  ask periodically to connect.
+  when connect, ask server for all latest files.
+  then sync all files, and handle file changes
+
+
 
 
 
