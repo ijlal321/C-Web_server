@@ -1,34 +1,5 @@
-1. client send ws req (called on ws.open)
-2. receive public id.
+// ========== WORKFLOW OF OUR APP ========= //
 
-3. only when see public id, that change screen to waiting for approval
-4. when client gets approved, then show main page.
-
-5. Make UI For Uploading Our File
-6. Make ui + handle removing Our File
-
-(available files: files coming from server)
-7. Make UI for available files 
-8. Handle UI When available File Removed
-8. Make UI for downloading available files 
-
-9. Handle Download file
-10. Handle if alot of files. then you would download n files at a time.
-
-11. Dynamic chunk implement
-12. check files before combining
-
-13. Modularization of that mess
-
-14. Implement Upload too.
-
-
-// ========== REALISTIC WORK I AM DOING RN ========= //
-
-
-    2. Broadcast issue,    // DONE
-        1. do i send these initial to server too ? as an ack ?  ✅ YES
-        2. how to handle broadcast client, meaning send to approved too ?
 
 master_app registers -> MASTER_APP_REGISTER
 -> server returns -> MASTER_APP_REGISTER_ACK
@@ -52,45 +23,26 @@ someone asks a chunk -> REQUEST_CHUNK
 -> owner uploads -> 
 -> server notifies akser -> CHUNK_READY
 
+
+// =================== WHAT AM I DOING RN =============== //
+
+
+
+// ============== TODO =================== //
+    1. Broadcast issue,    // DONE
+        1. do i send these initial to server too ? as an ack ?  ✅ YES
+        2. how to handle broadcast client, meaning send to approved too ?
+
 then we modularize our client files structure, as we talked below. 3 things in 1.
-
-then we implement reconnect logic. if ws dies, then how to stop messages.
-
-
-// temp
-doing RN
-1 client register using - CLIENT_REGISTER - send to UI
-2. UI approve or dissapprove -  CLIENT_APPROVED/CLIENT_DIS_APPROVED 
-    broadcast this to everyone with - ````   - 
-        Disapprove client will close all connections with other, removing any download if in progress, on both sides
-3. Someone adds/remove a file -> Broadcast to everyone - ADD_FILES/REMOVE_FILE
-                                // REMEMBER MULTIPLE ADD / SINGLUAR REMOVE
-4. Someone asks a chunk - REQUEST_CHUNK - it will ask owner of file
-    to upload chunk - UPLOAD_CHUNK_REQUEST -
-    other will upload chunk, when chunk is available on server, it 
-    will notify asking client - CHUNK_READY
+3. refactor or change - files + client info + download status => all 3 into 1 should be.
 
 
+4. pause / resume 
+5. client / server reconnect - [via private id]
+6. make http req secure
+7.  remove lock from client or files, whatever dont work well with uthash. [!! need research !!]
 
-1. ADD APP IN THIS SAME UI USING ENV VAR
-    1. approve / done -- disapprove on client [remaining - what to do]
- -> 2. download - upload file, full both sides. # done
-        1. [think] -> someone sent a new file update [add / remove ]-> broadcast.
-        2. [think] -> client reconnects -> UI send latest data.
-        3. [think] -> all files send or just new ? i think all is good - need to rename opcodes.
-    3. Register cleint -> also gives name.
-    4. Only when UI approve, then sent client info to all clients.
-    5. 
 
-    3. refactor or change - files + client info + download status => all 3 into 1 should be.
-    4. pause / resume 
-    5. client / server reconnect - [via private id]
-    6. make http req secure
-    7.  remove lock from client or files, whatever dont work well with uthash. [!! need research !!]
-2. MAKE FULLLY WORKING APP. [NO WS RECONNECT LOGIC]
-2.5 HANDLE SMALL THINGS LIKE FOLDER TRANSFER. [ONLY APP - APP], naming of devices <update + send>
-3. IMPORIVE UI [FROM NIGERIA OR CHINA]
-4. PORT TO REACT NATIVE []
 
 // ** IMP // a way to handle websocket resend issue is, when add or remove files, this gets send to UI. ALl stuff. when UI accepts it, then UI broadcast message. Thus a sigulairity is fromed.
 
@@ -98,15 +50,6 @@ doing RN
 
 
 xxx. cleanup of chunks in server. full cleanup after x seconds
-xxx. send ack on both sides
-xxx. check new file if exist. main issue. new file comes. clientb ask all files. server send them from UI. NOw during this time, if someone also sent something. then it would have same file from UI + itself. kinda issue here.
-    fix: save file by file id, or array + check each file.
-    fix-better: when sending all files, only then check for duplicates.
-        
-
-todo: 
-vite.config.js -> remove proxy
-app.jsx        -> approved must be false by default
 
 should we do:
 1. upload folder possible frombrowser, but caveats. we need to handle it anyways due to app. (only if downloading file is in app).
