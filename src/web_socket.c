@@ -102,6 +102,18 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
     // take fields out of struct.
     const cJSON * ws_data = ws_msg_header.data;
     enum WsOPCodes op = (enum WsOPCodes)ws_msg_header.opcode;
+
+    // TODO: SERIOUS: HANDLE MASTER_APP LOCK
+    pthread_rwlock_rdlock(&connection_mgr->master_app.rwlock);
+    if (connection_mgr->master_app.conn == NULL && op != MASTER_APP_REGISTER){
+        // if some client sent data when master app not registered, ask to relay
+        cm_server_not_ready_handle(conn, root);
+        pthread_rwlock_unlock(&connection_mgr->master_app.rwlock);
+        goto end;
+    }
+    pthread_rwlock_unlock(&connection_mgr->master_app.rwlock);
+
+
     int res; // temp var for holding data below
     switch (op) {
         case MASTER_APP_REGISTER:
@@ -175,6 +187,7 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
             break;
     }
 
+end:
     cJSON_Delete(root);
     return 1;
     

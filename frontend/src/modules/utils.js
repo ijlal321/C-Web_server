@@ -14,6 +14,8 @@ export const WsOPCodes = createEnum([
   'MASTER_APP_REGISTER', // master app asking to register
   'MASTER_APP_REGISTER_ACK',    // send ack to master app telling if auth successful
 
+  'SERVER_NOT_READY',
+  
   'APPROVE_CLIENT', // MASTER APP tell server to approve this client
   'DIS_APPROVE_CLIENT',  // .. disapprove this client
   'CLIENT_APPROVED',    // server tell everyone this client is approved

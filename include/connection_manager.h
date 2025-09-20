@@ -24,6 +24,8 @@ void cm_registered_client_send_ack(struct ConnectionManager * connection_mgr, co
 
 void cm_add_client_to_UI(struct MasterApp * server, struct Client * client);
 
+void cm_server_not_ready_handle(struct mg_connection *conn, cJSON * root);
+
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn);
 
 void cm_send_master_app_registered_ack(struct MasterApp * server, int res);

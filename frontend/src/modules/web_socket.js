@@ -150,6 +150,9 @@ function handle_message(msg){
     console.log("WS Message received,  opcode: ", opcode, "  and data: ", data);
 
     switch (opcode){
+        case WsOPCodes.SERVER_NOT_READY:
+            handle_server_not_ready(data);
+            break;
         case WsOPCodes.MASTER_APP_REGISTER_ACK:
             handle_master_app_registered_ack(data);
             break;
@@ -224,6 +227,17 @@ function ws_register_client(data){
     //         all_files
     //     },
     // }));
+}
+
+function handle_server_not_ready(data){
+    if (!data){
+        console.error("Payload not sent back properly");
+        return;
+    }
+    console.log("sending data back after 3 sec");
+    setTimeout(() => {
+        ws.send(JSON.stringify(data));
+    }, 3000);
 }
 
 function handle_master_app_registered_ack(data){

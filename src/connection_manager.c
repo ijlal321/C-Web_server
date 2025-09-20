@@ -109,6 +109,16 @@ void cm_add_client_to_UI(struct MasterApp * master_app, struct Client * client){
     mg_websocket_write(master_app->conn, MG_WEBSOCKET_OPCODE_TEXT, buffer, strlen(buffer));  
 }
 
+// MASTER APP NOT READY HANDLE
+void cm_server_not_ready_handle(struct mg_connection *conn, cJSON * root){
+    char * incoming_payload = cJSON_PrintUnformatted(root);
+    char * payload = calloc(1, strlen(incoming_payload) + 64);
+    sprintf(payload, "{\"opcode\": %d, \"data\": %s}", SERVER_NOT_READY, incoming_payload);
+    mg_websocket_write(conn, MG_WEBSOCKET_OPCODE_TEXT, payload, strlen(payload));
+    free(payload);
+    free(incoming_payload);
+}
+
 //  MASTER APP REGISTRATION
 
 int cm_register_master_app(struct ConnectionManager * connection_mgr, struct mg_connection *conn){
