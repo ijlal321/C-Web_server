@@ -5,17 +5,21 @@ master_app registers -> MASTER_APP_REGISTER
 -> server returns -> MASTER_APP_REGISTER_ACK
 
 client registers -> CLIENT_REGISTER
--> server send req to cleint CLIENT_REGISTER_ACK
--> server send to master_app NEW_CLIENT_REGISTERED
+-> server send to master_app CLIENT_REGISTER
+-> MASTER_APP send req to cleint CLIENT_REGISTER_ACK // telling with public_id
 
 master_app approves a client -> APPROVE_CLIENT/DIS_APPROVE_CLIENT
 -> Server approves client
 -> send notification to EVERYONE client's approved -> CLIENT_APPROVED/CLIENT_DIS_APPROVED
 
 somedevice asks to add a file -> ADD_FILES/REMOVE_FILE
-  ❌ not now  [for add files, add them to a temp var, only when receive below msg. Add to UI].
-  ❌ not now  [for remove, remove only when receive below message], 
-    [ok, so when you select files, select files button becomes grey, if no ack in x sec, tell mess, that error]
+  add them to your file list, but set status to syncing, 
+    file status can be downloading, uploading, syncing, removed, idle 
+      download progress can also be added here if necessary
+    thus no reparate fields for file, well we will need some type, but just refrence to that public_id and file_id
+    just 1 caveat, file which is syning needs to be removed if no master app response in x time.
+  when sender gets notif from master app FILES_ADDED, then it sent status to isle
+
 -> server boradcast FILES_ADDED, FILE_REMOVED, if successful
 
 someone asks a chunk -> REQUEST_CHUNK
@@ -27,8 +31,6 @@ someone asks a chunk -> REQUEST_CHUNK
 // =================== WHAT AM I DOING RN =============== //
   GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
 
-    this go to master app artitecture is working kinda bad.
-    maybe its js frontend thats having issues ??
 
     client sent files
     server forward to MA
@@ -38,19 +40,6 @@ someone asks a chunk -> REQUEST_CHUNK
 
     MA add files, directly, broadcast everyone
 
-  add files: server selects files, [duplicates removed]
-    store blob in temp  
-    send files to server [with a unique id]
-    server send to master_app
-    master_app store new files metadata, [ignore any duplicates, bcz there wont be any],
-      and send to server, whcih will broadcast to all clients
-    [if sender client dont get a response within x sec, it will retry sending].
-    original client when get it,
-      matches unique id
-      store new files in another map
-      remove blob files that server rejects
-
-    after x second, if sender client dont get a response, then remove files + blobs completely
 
 when master_app connects -> (first time), server send all clients, so master app can show and approve later
 
@@ -68,22 +57,12 @@ reconnect -> if a client disconnects, then set public_id to null; thus show conn
 
 
 // ============== TODO =================== //
-    1. Broadcast issue,    // DONE
-        1. do i send these initial to server too ? as an ack ?  ✅ YES
-        2. how to handle broadcast client, meaning send to approved too ?
-
-then we modularize our client files structure, as we talked below. 3 things in 1.
-3. refactor or change - files + client info + download status => all 3 into 1 should be.
-
 
 4. pause / resume 
 5. client / server reconnect - [via private id]
 6. make http req secure
 7.  remove lock from client or files, whatever dont work well with uthash. [!! need research !!]
 
-
-
-// ** IMP // a way to handle websocket resend issue is, when add or remove files, this gets send to UI. ALl stuff. when UI accepts it, then UI broadcast message. Thus a sigulairity is fromed.
 
 // CALL VICTOE -> Only Talk About Video and FYP. [MUST BE DONE THIS WEEKEND]
 
