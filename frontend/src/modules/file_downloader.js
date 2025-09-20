@@ -2,7 +2,7 @@ import * as web_socket from "./web_socket.js"
 
 // ============= GLOBAL VARIABLES ================= //
 let  bytes_loaded_this_sec = 0; // Used to track how much total bytes loaded this second. [For Tracking Speed]
-let available_download_resource = {parallel_chunks:2, chunk_size: 1024*1024*0.5}; // 2, 1MB
+let available_download_resource = {parallel_chunks:20, chunk_size: 1024*1024*20}; // 2, 1MB
 
 const MAX_CONCURRENT_FILE_DOWNLOADS = 3;
 let activeFileDownloads = 0; // unused for now // step 10
@@ -339,7 +339,7 @@ setInterval(() => {
         const new_resource = getResourceForSpeed(speedMBps);
         console.log(new_resource);
         console.log(`Speed: ${speed}, parallel_chunks: ${new_resource.parallel_chunks}, chunk size: ${new_resource.chunk_size}`);
-        available_download_resource = new_resource;
+        // available_download_resource = new_resource;
     }
 
 }, 1000);

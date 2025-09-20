@@ -8,9 +8,9 @@ import * as file_downloader from "./file_downloader.js";
 
 let self_client, set_self_client, remote_clients, set_remote_clients;
 export function register_all_clients(_self_client, _set_self_client, _remote_clients, _set_remote_clients){
-    self_client = _self_client;
+    self_client = {public_id:-1, public_name:"name here", approved: false, files:{}};
     set_self_client = _set_self_client;
-    remote_clients = _remote_clients;
+    remote_clients = {};
     set_remote_clients = _set_remote_clients;
 }
 
@@ -65,19 +65,17 @@ export function send_files_to_server(files, transfer_id){
     if (!files || files.length === 0) return false;
     
 
-    // if (files.public_id == 0){  // dont send ws message then
-    //     files.forEach(file => {
-    //         self_client[files][file.file_id] = file; // file dont have blob. We already know
-    //     });
-    //     set_self_client(self_client);
-
-    //     // send files added message to server
-    //     ws.send(JSON.stringify({
-    //         opcode: WsOPCodes.FILES_ADDED,
-    //         data,
-    //     }))
-    //     return;
-    // }
+    if (self_client.public_id == 0){  // dont send ws message then
+        // send files added message to server
+        ws.send(JSON.stringify({
+            opcode: WsOPCodes.FILES_ADDED,
+            data: {
+                public_id: 0,
+                files,
+            },
+        }))
+        return;
+    }
 
     // Send new files to websocket
     ws.send(JSON.stringify({
@@ -93,6 +91,7 @@ export function send_files_to_server(files, transfer_id){
     // TODO: update self client local var one here ? 
     return true;
 }
+
 
 export function remove_file_from_server(file_id){
     if (is_ws_ready_to_send_msg() == false) return false;
@@ -173,11 +172,15 @@ function handle_message(msg){
             // only Master App
             ws_master_app_approve_new_files(data);
             break;
+        case WsOPCodes.REMOVE_FILE:
+            // only Master App
+            ws_master_app_remove_file(data);
+            break;
         case WsOPCodes.FILES_ADDED:
             ws_new_files_add(data);
             break;
-        case WsOPCodes.FILE_REMOVED:
-            ws_remove_available_files(data);   // Trick right here. need proper opcodes here.
+        case WsOPCodes.FILE_REMOVED:  
+            ws_remove_client_file(data);   // Trick right here. need proper opcodes here.
             break;
         case WsOPCodes.REQUEST_CHUNK_UPLOAD:
             ws_upload_chunk(data)
@@ -289,8 +292,8 @@ function ws_master_app_approve_new_files(data){
         remote_clients[data.public_id].files = {};
     }
     data.files.forEach(file => {
-        if (!remote_clients[data.public_id].files[file.file_id]){
-            remote_clients[data.public_id].files[file.file_id] = file; // file dont have blob. We already know
+        if (!remote_clients[data.public_id].files[file.id]){
+            remote_clients[data.public_id].files[file.id] = file; // file dont have blob. We already know
         }
     });
     set_remote_clients(remote_clients);
@@ -300,6 +303,35 @@ function ws_master_app_approve_new_files(data){
         opcode: WsOPCodes.FILES_ADDED,
         data,
     }))
+}
+
+function ws_master_app_remove_file(data){
+    if (!data || typeof data.public_id == 'undefined' || typeof data.file_id == 'undefined') {
+        console.log("Remove Available Files: Data from server Invalid or INcomplete");
+        return;
+    }
+    if (!remote_clients[data.public_id]) {
+        console.error("Remove files for a client not added yet");
+        return;
+    }
+    if (!remote_clients[data.public_id].files) {
+        remote_clients[data.public_id].files = {};
+        console.error("File remove Erorr: client metadata on sevrer should not be empty. what would i remove ?");
+    }
+
+    if (remote_clients[data.public_id].files[data.file_id]){
+        console.log("FOund file to remove on server");
+        delete remote_clients[data.public_id].files[data.file_id];
+        set_remote_clients(remote_clients);
+    }
+
+    // notify server about removed files if needed
+    ws.send(JSON.stringify({
+        opcode: WsOPCodes.FILE_REMOVED,
+        data,
+    }));
+
+    console.log("notification send for FILES_REMOVED")
 }
 
 function ws_new_files_add(data){
@@ -319,36 +351,41 @@ function ws_new_files_add(data){
         return;
     }
     if (!remote_clients[data.public_id]){
-        console.error("Add files for a client not added yet");
-        return;
+        if (data.public_id == 0){   // TODO: shortcut here, make a server in client after accepting client
+            remote_clients[0] = {public_id: 0, public_name:"master_app someone", approved: 1, files: {}};
+        }else{
+            console.error("Add files for a client not added yet");
+            return;
+        }
     }
     data.files.forEach(file => {
-        remote_clients[data.public_id][file.file_id] = file; // file dont have blob. We already know
+        remote_clients[data.public_id].files[file.id] = file; // file dont have blob. We already know
     });
     set_remote_clients(remote_clients);
 }
 
-function ws_remove_available_files(data){
-    if (onAvailableFilesUpdate == null){
-        console.error("Client Logic Error: onAvailableFilesUpdate called before initialized");
-        return;
-    }
+function ws_remove_client_file(data){
     if (!data || typeof data.public_id == 'undefined' 
         // || !Array.isArray(data.files)  // need if later we convert it to array
         ){
         console.log("Add Available FIles: Data from server Invalid or INcomplete");
         return;
     }
-    if (data.public_id == self_client.public_id){
-        return; // not for us.
+    if (data.public_id == self_client.public_id) {
+        // Remove files from self_client
+        set_self_client(prev => {
+            const newFiles = { ...prev.files };
+            delete newFiles[data.file_id];
+            return {
+            ...prev,
+            files: newFiles
+            };
+        });
+        return;
     }
-    onAvailableFilesUpdate(prev => {
-        const updated = { ...prev };
-        if (updated[data.public_id]) {
-            updated[data.public_id] = updated[data.public_id].filter(file => file.id != data.file_id);
-        }
-        return updated;
-    });
+    // Remove files from remote_clients
+    delete remote_clients[data.public_id].files[data.file_id];
+    set_remote_clients({ ...remote_clients });
 }
 
 function ws_remove_available_file(data){

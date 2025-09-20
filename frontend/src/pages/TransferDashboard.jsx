@@ -64,6 +64,21 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
             type: f.type || '',
             file: f,
         }));
+        // new files without blobs
+        const new_files_without_blob = newFilesArr.map(({file, ...rest}) => rest)
+
+        if (self_client.public_id == 0){
+            const updatedFiles = { ...self_client.files };
+            newFilesArr.forEach(file => {
+                updatedFiles[file.id] = file;
+            });
+            set_self_client(prev => ({
+                ...prev,
+                files: updatedFiles
+            }));
+            const res = web_socket.send_files_to_server(new_files_without_blob, -1);
+            return;
+        }
 
         // saves new files blob to temp map
         const transfer_id = utils.generate_small_id();
@@ -71,7 +86,6 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
         newFilesArr.forEach(file=>  temp_file_map[transfer_id].files[file.id] = file);
 
         // send new files (without file blob) to ws
-        const new_files_without_blob = newFilesArr.map(({file, ...rest}) => rest)
         const res = web_socket.send_files_to_server(new_files_without_blob, transfer_id);
         if (res == false){
             // remove temp file with transfer id
@@ -83,7 +97,7 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
 
 
     const get_file_blob =(owner_public_id, file_id, start_pos, size) =>{
-        const file = our_files.find(f => f.id == file_id);
+        const file = self_client.files[file_id];
         if (!file) {
             console.error('File not found for upload');
             return null;
@@ -100,7 +114,14 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
         const res = web_socket.remove_file_from_server(file_id);
         if (!res) return;
         // remove item from list
-        set_our_files(prev => prev.filter((_, i) => i !== file_index));
+        // set_self_client(prev => {
+        //     const newFiles = { ...prev.files };
+        //     delete newFiles[file_id];
+        //     return {
+        //     ...prev,
+        //     files: newFiles
+        //     };
+        // });
         return;
     }
 

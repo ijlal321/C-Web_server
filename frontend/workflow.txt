@@ -27,6 +27,9 @@ someone asks a chunk -> REQUEST_CHUNK
 // =================== WHAT AM I DOING RN =============== //
   GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
 
+    this go to master app artitecture is working kinda bad.
+    maybe its js frontend thats having issues ??
+
     client sent files
     server forward to MA
     MA -> files_added to server

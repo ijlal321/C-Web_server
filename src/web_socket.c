@@ -146,8 +146,13 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         cm_broadcast_new_file(connection_mgr, ws_data);
             break;
         case REMOVE_FILE:
-            cm_broadcast_remove_file(connection_mgr, ws_data);
+            cm_remove_file_req_to_master_app(connection_mgr, root);
+            // cm_broadcast_remove_file(connection_mgr, ws_data);
             printf("Handling REMOVE_FILE\n");
+            break;
+        case FILE_REMOVED:
+        // use above broadcast file
+        cm_broadcast_remove_file(connection_mgr, root);
             break;
         case REQUEST_CHUNK:
             chunk_request_manage(app_ctx , ws_data, conn);

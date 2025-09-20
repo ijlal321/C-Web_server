@@ -42,6 +42,8 @@ void cm_send_files_to_UI(struct MasterApp * server, const cJSON * ws_data);
 
 void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
+void cm_remove_file_req_to_master_app(struct ConnectionManager * connection_mgr, const cJSON * root);
+
 void cm_send_files_to_master_app(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 
 void cm_broadcast_remove_file(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
