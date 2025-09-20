@@ -30,7 +30,10 @@ someone asks a chunk -> REQUEST_CHUNK
     client sent files
     server forward to MA
     MA -> files_added to server
-    
+    server broadcast files_added
+    sender client will accpt gracefully
+
+    MA add files, directly, broadcast everyone
 
   add files: server selects files, [duplicates removed]
     store blob in temp  

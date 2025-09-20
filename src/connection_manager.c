@@ -221,7 +221,7 @@ void cm_broadcast_new_file(struct ConnectionManager * connection_mgr, const cJSO
     char * string_to_send = calloc(1, strlen(data_string) + 128);
     sprintf(string_to_send, "{\"opcode\":%d, \"data\":%s}", FILES_ADDED, data_string); 
     // char * string_to_send = cJSON_PrintUnformatted(ws_data);
-    cm_broadcast_message(connection_mgr, string_to_send, strlen(string_to_send));
+    cm_broadcast_message_to_all_clients(connection_mgr, string_to_send, strlen(string_to_send), -1);
     free(string_to_send);
     free(data_string);
     return;

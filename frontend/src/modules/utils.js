@@ -68,7 +68,7 @@ export function get_key_from_file(file){
 
 export function get_unique_files(old_files, new_files){
     // remove duplicate files
-    const existing = new Set(Object.entries(old_files).map((_, f) => get_key_from_file(f)));
+    const existing = new Set(Object.values(old_files).map(get_key_from_file));
     const uniqueFiles = Array.from(new_files).filter(f => !existing.has(get_key_from_file(f)));
 
     return uniqueFiles;

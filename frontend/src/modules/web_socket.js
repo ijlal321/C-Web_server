@@ -65,19 +65,19 @@ export function send_files_to_server(files, transfer_id){
     if (!files || files.length === 0) return false;
     
 
-    if (files.public_id == 0){  // dont send ws message then
-        files.forEach(file => {
-            self_client[files][file.file_id] = file; // file dont have blob. We already know
-        });
-        set_self_client(self_client);
+    // if (files.public_id == 0){  // dont send ws message then
+    //     files.forEach(file => {
+    //         self_client[files][file.file_id] = file; // file dont have blob. We already know
+    //     });
+    //     set_self_client(self_client);
 
-        // send files added message to server
-        ws.send(JSON.stringify({
-            opcode: WsOPCodes.FILES_ADDED,
-            data,
-        }))
-        return;
-    }
+    //     // send files added message to server
+    //     ws.send(JSON.stringify({
+    //         opcode: WsOPCodes.FILES_ADDED,
+    //         data,
+    //     }))
+    //     return;
+    // }
 
     // Send new files to websocket
     ws.send(JSON.stringify({
@@ -285,8 +285,13 @@ function ws_master_app_approve_new_files(data){
         console.error("Add files for a client not added yet");
         return;
     }
+    if (!remote_clients[data.public_id].files){
+        remote_clients[data.public_id].files = {};
+    }
     data.files.forEach(file => {
-        remote_clients[data.public_id][file.file_id] = file; // file dont have blob. We already know
+        if (!remote_clients[data.public_id].files[file.file_id]){
+            remote_clients[data.public_id].files[file.file_id] = file; // file dont have blob. We already know
+        }
     });
     set_remote_clients(remote_clients);
 
@@ -299,7 +304,7 @@ function ws_master_app_approve_new_files(data){
 
 function ws_new_files_add(data){
     if (self_client.public_id == 0){
-        return;  // master app has already added app
+        return;  // master app has nothing to do  // also i dont think he will be called here ever.
     }
     if (set_remote_clients == null){
         console.error("Client Logic Error: set_remote_clients called before initialized");
@@ -406,7 +411,7 @@ function add_or_update_client(client){
     // find existing client
     const existing_client = remote_clients[client.public_id];
     if (!existing_client){
-        set_remote_clients(prev=> ({...prev, [client.public_id]: client}));
+        set_remote_clients(prev=> ({...prev, [client.public_id]: {...client, files:{}}}));
         remote_clients[client.public_id] = client;
         console.log("new client added successfully");
         return;

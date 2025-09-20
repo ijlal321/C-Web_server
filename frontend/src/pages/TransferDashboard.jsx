@@ -1,15 +1,12 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useRef} from 'react';
 import * as web_socket from "../modules/web_socket.js";
 import * as utils from "../modules/utils.js";
 import * as file_downloader from "../modules/file_downloader.js"
 
 const TransferDashboard = ({self_client, set_self_client, remote_clients, set_remote_clients}) => {
-    let fileIdCounter = 1; // for assigning ID to files.
+    const fileIdCounter = useRef(1);  // for assigning ID to files.
     const [download_status, set_download_status] = useState({speed:"NA", parallel_chunks:"", chink_size:"", time_took:0});
     const temp_file_map = {};
-    const file_map = {};
-
-    const available_files = {};
 
     useEffect(()=>{
         file_downloader.registerOnDownloadStatusUpdate(set_download_status);
@@ -18,22 +15,72 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
     });
 
     const onTransferIdReceived = (transfer_id, files) => {
-        if (transfer_id == null || temp_file_map[transfer_id] == null){
-            console.error("Cannot Add files. Maybe done before already ?");
+        if (transfer_id == null){
+            console.error("Cannot Add files. Invalid Or Incomplete transfer id ?");
             return;
         }
-        if (file_map[transfer_id]){
-            console.error("It should not have happened. ");
+        const entry = temp_file_map[transfer_id];
+        if (!entry) {
+            // maybe already taken
             return;
         }
 
-        file_map[transfer_id] = {};
-        Object.entries(temp_file_map[transfer_id]).forEach(([file_id, file]) => {
-            file_map[transfer_id][file_id] = file;
-        })
+        console.log("temp_file: ", entry);
+        console.log("self_client: ", self_client);
 
-        delete temp_file_map[transfer_id];
+        // add files in self_client
+        set_self_client(prev => ({
+            ...prev,
+            files: {
+                ...prev.files,
+                ...entry.files
+            }
+        }));
+
+        // delete temp_file_map[transfer_id];
     }
+
+    const handle_file_upload = (event) => {
+        // Safe Check
+        if (!event || !event.target || !event.target.files){
+            return;
+        }
+
+        // Get files from Event
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+        
+        // remove duplicates (if any)
+        const newFiles = utils.get_unique_files(self_client.files, files);
+        if (newFiles.length == 0){
+            return;
+        }
+
+        // convert new files to list with new ID
+        const newFilesArr = newFiles.map(f => ({
+            id: fileIdCounter.current++,
+            name: f.name,
+            size: f.size,
+            type: f.type || '',
+            file: f,
+        }));
+
+        // saves new files blob to temp map
+        const transfer_id = utils.generate_small_id();
+        temp_file_map[transfer_id] = {time: Date.now(), files: {}}
+        newFilesArr.forEach(file=>  temp_file_map[transfer_id].files[file.id] = file);
+
+        // send new files (without file blob) to ws
+        const new_files_without_blob = newFilesArr.map(({file, ...rest}) => rest)
+        const res = web_socket.send_files_to_server(new_files_without_blob, transfer_id);
+        if (res == false){
+            // remove temp file with transfer id
+            delete temp_file_map[transfer_id];
+            console.error("error adding new file");
+        }
+        
+    }
+
 
     const get_file_blob =(owner_public_id, file_id, start_pos, size) =>{
         const file = our_files.find(f => f.id == file_id);
@@ -46,46 +93,6 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
         return blob;
     }
 
-
-    const handle_file_upload = (event) => {
-        // Safe Check
-        if (!event || !event.target || !event.target.files){
-            return;
-        }
-
-        // Get files from Event
-        const files = event.target.files;
-        if (!files || files.length === 0) return;
-
-        // remove duplicates (if any)
-        const newFiles = utils.get_unique_files(self_client.files, files);
-        if (newFiles.length == 0){
-            return;
-        }
-
-        // convert new files to list with new ID
-        const newFilesArr = newFiles.map(f => ({
-            id: fileIdCounter++,
-            name: f.name,
-            size: f.size,
-            type: f.type || '',
-            file: f,
-        }));
-
-        // saves new files blob to temp map
-        const transfer_id = utils.generate_small_id();
-        temp_file_map[transfer_id] = {time: Date.now(), files: {}}
-        newFilesArr.forEach(file=>  temp_file_map[transfer_id][file.id] = file);
-
-        // send new files (without file blob) to ws
-        const new_files_without_blob = newFilesArr.map(({file, ...rest}) => rest)
-        const res = web_socket.send_files_to_server(new_files_without_blob, transfer_id);
-        if (res == false){
-            // remove temp file with transfer id
-            delete temp_file_map[transfer_id];
-        }
-        
-    }
 
     const handle_file_remove = (file_id, file_index) => {
         if (!file_id == null || file_index == null) return;
@@ -132,24 +139,24 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
             <div style={{ border: "dotted black 2px", borderRadius: "10px", padding: "10px", margin: "20px" }}> {/* upload file section */}
                 <h2>Available Files</h2>
                 {/* show Public Available files */}
-                {Object.entries(available_files).map(([owner_public_id, files], idx) => (
+                {Object.entries(remote_clients).map(([remote_client_public_id, remote_client], idx) => (
                     // Show Available Public ID 
                     <div key={idx} style={{border:"solid black 1px", borderRadius:"5px", padding:"10px", margin:"15px"}}>
-                        <b>Public:ID: {owner_public_id}</b> <br/>
+                        <b>Public:ID: {remote_client_public_id}</b> <br/>
                         {/* Show Files inside each Public ID */}
-                        Files: {files.map((f, idx) => (
+                        Files: {Object.entries(remote_client.files).map(([file_id, f], idx) => (
                             <div key={idx} style={{margin:"10px"}}>
                                 <p><b>{idx+1}:
                                     Name: {f.name} </b><br />
                                     Size: {f.size} 
-                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(owner_public_id, f)}>Download</button>
+                                    <button style={{margin:"0 10px"}} onClick={()=>handle_file_download(remote_client_public_id, f)}>Download</button>
                                 </p>
                             </div>
                         ))}
                     </div>
                 ))}
-                <button onClick={()=>console.log(available_files)}>Log Available Files</button>
-                <button onClick={()=>console.log(our_files)}>Log Our Files</button>
+                <button onClick={()=>console.log(self_client.files)}>Log Our Files</button>
+                <button onClick={()=>console.log(remote_clients)}>Log other client Files</button>
             </div>
             
             <div>
