@@ -27,10 +27,24 @@ someone asks a chunk -> REQUEST_CHUNK
 -> owner uploads -> 
 -> server notifies akser -> CHUNK_READY
 
+      FIX STATE MANAGEMENT ONCE AND FOR ALL
+      BY
+      MOVING WEBSOCKET.js to a jsx
+      which is done BY
+      keeping all export [ourgoing messages outside]
+      all ell else inside in a jsx
 
 // =================== WHAT AM I DOING RN =============== //
   GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
 
+    BEFORE GOING TO FLUTTER, I NEED A FULLY WORKING APP HERE IN WEB.
+        CUR MODE IS BROADCAST MODE - THAT WILL BE IMPLEMENTED
+      
+    1. PROPER REGISTRATION TO NEW CLIENTS
+      SEND FILES DATA TO them
+        FOR THAT, FIRST, WHEN NEW CLIENT APPEAR TO MASTER_APP, MAKE A FULL FILE STRUCTURE FOR IT
+        WHEN ANOTHER CLIENT APPEARS, SEND THAT + ALL ELSE TO IT
+    
 
     client sent files
     server forward to MA

@@ -24,7 +24,7 @@ const ClientApproval = ({remote_clients, set_remote_clients }) => {
         }));
         // send req to web socket 
         /// TODO: [should be done before changing state]
-        web_socket.change_client_approval_state(client_public_id, new_approval_state)
+        web_socket.change_client_approval_state(client_public_id, cur_client.public_name, new_approval_state)
     }
 
     return (

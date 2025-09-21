@@ -189,8 +189,7 @@ int cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSO
 }
 
 
-void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data){
-    
+void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data,  const cJSON * root){
     // Get public_id from data.
     int public_id;    
     if (j2d_get_int(ws_data, "public_id", &public_id) != 0){
@@ -198,6 +197,17 @@ void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, con
         return;
     }
 
+    // relay root to everyone else
+    pthread_rwlock_rdlock(&connection_mgr->rwlock);
+    char * data_string = cJSON_PrintUnformatted(root);
+    
+    cm_broadcast_message_to_all_clients(connection_mgr, data_string, strlen(data_string), public_id);
+    
+    free(data_string);
+    pthread_rwlock_unlock(&connection_mgr->rwlock);
+    return;
+
+    /*
 
     pthread_rwlock_rdlock(&connection_mgr->rwlock);
     
@@ -219,6 +229,7 @@ void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, con
 end:
     pthread_rwlock_unlock(&connection_mgr->rwlock);
     return;
+    */
 }
 
 

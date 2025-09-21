@@ -176,7 +176,7 @@ const TransferDashboard = ({self_client, set_self_client, remote_clients, set_re
                         ))}
                     </div>
                 ))}
-                <button onClick={()=>console.log(self_client.files)}>Log Our Files</button>
+                <button onClick={()=>console.log(self_client)}>Log Our Files</button>
                 <button onClick={()=>console.log(remote_clients)}>Log other client Files</button>
             </div>
             

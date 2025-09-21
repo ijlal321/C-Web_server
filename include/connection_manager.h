@@ -36,7 +36,7 @@ void cm_notify_client_approved(struct ConnectionManager * connection_mgr, const 
 
 int cm_set_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data, int approved);
 
-void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
+void cm_broadcast_client_approval(struct ConnectionManager * connection_mgr, const cJSON * ws_data,  const cJSON * root);
 
 int cm_add_files(struct ConnectionManager * connection_mgr, const cJSON * ws_data);
 

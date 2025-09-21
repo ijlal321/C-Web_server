@@ -6,17 +6,13 @@ import TransferDashboard from './pages/TransferDashboard.jsx';
 import ClientApproval from './pages/ClientApproval.jsx';
 
 function App() {
-  const [public_id, set_public_id] = useState(-1);
-  const [is_approved, set_is_approved] = useState(false);  // TODO: Default true just for testing.
-
-  const [our_files, set_our_files] = useState([]);  // files available on this device [uploaded by user]
-  const [available_files, set_available_files] = useState({});  // files available on other devices
 
   const [self_client, set_self_client] = useState({public_id:-1, public_name:"name here", approved: false, files:{}});
   const [remote_clients, set_remote_clients] = useState({});
-  const [private_id, set_private_id] = useState();
+  const [private_id, set_private_id] = useState(); /// used for reconnecting. not implemented yet.
+
   useEffect(()=>{
-    web_socket.register_all_clients(self_client, set_self_client, remote_clients, set_remote_clients);
+    web_socket.register_all_clients(set_self_client, set_remote_clients);
 
     // init websocket
     const app_mode = import.meta.env.VITE_APP_MODE; 

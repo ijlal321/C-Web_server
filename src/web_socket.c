@@ -133,17 +133,18 @@ int ws_data(struct mg_connection *conn, int con_opcode, char *data, size_t len, 
         case CLIENT_REGISTER_ACK:
             cm_registered_client_send_ack(connection_mgr, ws_data);
             break;
-        case APPROVE_CLIENT:
+        case CLIENT_APPROVED:
             res = cm_set_client_approval(connection_mgr, ws_data, 1); // set client to approved
             if (res != -1){
-                cm_broadcast_client_approval(connection_mgr, ws_data); // tell Every Client about a client approval
+
+                cm_broadcast_client_approval(connection_mgr, ws_data, root); // tell Every Client about a client approval
                 printf("approve client called\n");
             }
             break;
-        case DIS_APPROVE_CLIENT:
+        case CLIENT_DIS_APPROVED:
             res = cm_set_client_approval(connection_mgr, ws_data, 0); // set client to disaproved
             if (res != -1){
-                cm_broadcast_client_approval(connection_mgr, ws_data); // notify client
+                cm_broadcast_client_approval(connection_mgr, ws_data, root); // notify client
                 printf("UI_DIS_APPROVE_CLIENT client called\n");
             }
             break;
