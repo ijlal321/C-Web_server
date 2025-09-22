@@ -12,7 +12,7 @@ function App() {
   const [private_id, set_private_id] = useState(); /// used for reconnecting. not implemented yet.
 
   useEffect(()=>{
-    web_socket.register_all_clients(set_self_client, set_remote_clients);
+    web_socket.register_all_clients(set_self_client, set_remote_clients, self_client, remote_clients);
 
     // init websocket
     const app_mode = import.meta.env.VITE_APP_MODE; 
@@ -24,6 +24,14 @@ function App() {
         web_socket.init(generated_private_id);
       }
   }, []);
+
+  useEffect(() => {
+    
+    web_socket.register_client_getter(self_client, remote_clients);
+    
+    // rest of your useEffect code...
+  }, [remote_clients, self_client]);
+
 
   // Connecting State
   if (self_client.public_id == -1){

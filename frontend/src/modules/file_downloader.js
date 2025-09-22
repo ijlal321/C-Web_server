@@ -338,7 +338,7 @@ setInterval(() => {
         const speedMBps = Math.ceil(speed / (1024*1024));
         const new_resource = getResourceForSpeed(speedMBps);
         console.log(new_resource);
-        console.log(`Speed: ${speed}, parallel_chunks: ${new_resource.parallel_chunks}, chunk size: ${new_resource.chunk_size}`);
+        console.log(`Speed: ${speed / (1024 * 1024)}, parallel_chunks: ${new_resource.parallel_chunks}, chunk size: ${new_resource.chunk_size}`);
         // available_download_resource = new_resource;
     }
 

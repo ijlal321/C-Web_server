@@ -62,6 +62,7 @@ void chunk_request_manage(struct AppContext * app_ctx , const cJSON * ws_data, s
         HASH_ADD(hh, chunk_mgr->chunks, chunk_key, sizeof(struct ChunkKey), new_chunk);
         
         // send message to owner to send data
+        printf("calling fn to create chunk, opcode: %d \n", REQUEST_CHUNK_UPLOAD);
         send_chunk_request(target_socket, REQUEST_CHUNK_UPLOAD, owner_public_id, file_id, start_pos, size);
         goto end;
     
