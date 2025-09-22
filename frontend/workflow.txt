@@ -1,12 +1,82 @@
 // ========== WORKFLOW OF OUR APP ========= //
 
+1. registration of master app
+  [master app] send MASTER_APP_REGISTER to server
+  [server] return MASTER_APP_REGISTER_ACK 
+    telling if registered or not
+  
+2. master app disconnects
+  [all client req will be sent back, telling server not ready, try again] SERVER_NOT_READY
 
-master_app registers -> MASTER_APP_REGISTER
--> server returns -> MASTER_APP_REGISTER_ACK
+3. MASTER APP Reconnects 
+  [start execution again], allow clients to send messages
 
-client registers -> CLIENT_REGISTER
--> server send to master_app CLIENT_REGISTER
--> MASTER_APP send req to cleint CLIENT_REGISTER_ACK // telling with public_id
+4. client register  (not approval)
+  [client] send to [server] CLIENT_REGISTER
+  [server] forward req to [master app] CLIENT_REGISTER
+    master app store it and do what it wants, 
+  [master_app] returns MASTER_APP_REGISTER_ACK to [server]
+  [server] relay request to [cleint]
+
+5. client approved [master app clicks to approve client]
+  [master_app] send CLIENT_REGISTERED + all files + clients data to [server] -> relay to client
+    now if client who receive data
+      is just another random client, he will add that new approved client to db
+      is the client being approved, he will all files data to his own remote clients
+    
+6. client disapproved
+  [master app] send CLIENT_DIS_APPROVED to server. 
+  server broadcast it.
+  now if client who receive data
+    is just another random client, cut all ties with that client
+    is the client being dis_approved, then make itself disapproved, but stop everything. 
+
+  ** CLIENT_DIS_APPROVED is final, with no reconnect chance, cut all ties with it
+
+7. client disconnects [in progress]
+  ...
+  broadcast client disconnected, waiting for reconnect.
+8. client Reconnects [in progress]
+  ...
+  [master app] send all latest files + boradcast everyone that it has re connected
+
+9. Client Add files:
+  [client] saves files being sent in a temp
+  [client] sent ADD_FILES to [seerver]
+  [server] relay to [master_app]
+  [master_app] broadcast [files_added] to every client
+  now if client who receive data
+    is just another random client, then add meta data to list
+    is the client being files add, he will move files from temp, and store them.
+
+10. Master App add files
+  [master_app] broadcast [files_added] to every client
+  every client stores it
+
+11. CLient remove files [download stop needs to be done]
+  [client] dont remove files yet [same as adding]
+  [client] send REMOVE_FILE to [server]
+  [server] relay to [master_app]
+  [master_app] do some things
+  [master_app] broadcast FILE_REMOVED
+  now if client who receive data
+    is just another random client, then remove files
+    is the client being files removed, he will remove completely files metadata + blobs + cleanup 
+
+12. masterapp remove files [download stop needs to be implemented]
+  [master_app] broadcast FILE_REMOVED + remove all data blobs + clean
+  clients will just remove meta data from remote_clients
+
+13. download a file
+  [client] REQUEST_CHUNK -> [seerver]
+  [server] [UPLOAD_CHUNK_REQUEST] -> [file owner] (other client / master app)
+  [file owner] uploads via http
+  [server] on getting chunk via http -> CHUNK_READY -> asking client
+  [asking client sent http req to download chunk]
+
+// ========== WHAT HAPPENS WHEN ============= //
+
+cleint gets a public _id -> masterapp register a client, send public_id + CLIENT_REGISTER_ACK
 
 master_app approves a client -> APPROVE_CLIENT/DIS_APPROVE_CLIENT
 -> Server approves client
@@ -22,49 +92,22 @@ somedevice asks to add a file -> ADD_FILES/REMOVE_FILE
 
 -> server boradcast FILES_ADDED, FILE_REMOVED, if successful
 
-someone asks a chunk -> REQUEST_CHUNK
--> server asks owner -> UPLOAD_CHUNK_REQUEST
--> owner uploads -> 
--> server notifies akser -> CHUNK_READY
-
-      FIX STATE MANAGEMENT ONCE AND FOR ALL
-      BY
-      MOVING WEBSOCKET.js to a jsx
-      which is done BY
-      keeping all export [ourgoing messages outside]
-      all ell else inside in a jsx
+WHEN A NEW CLIENT IS REGISTERED, WE ALWAWAYS MADE A FULL STRUCTURE FOR THEM IN MASTER APP.
 
 // =================== WHAT AM I DOING RN =============== //
-  GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL
+  ✅ DONE: GOAL: MAKE SURE NOTHING GETS MISSED IN NORMAL USAGE - NOT TOO SIDE CASES< BUT ATLEAST IN NORMAL // DONE
 
-    BEFORE GOING TO FLUTTER, I NEED A FULLY WORKING APP HERE IN WEB.
-        CUR MODE IS BROADCAST MODE - THAT WILL BE IMPLEMENTED
-      
-    1. PROPER REGISTRATION TO NEW CLIENTS
-      SEND FILES DATA TO them
-        FOR THAT, FIRST, WHEN NEW CLIENT APPEAR TO MASTER_APP, MAKE A FULL FILE STRUCTURE FOR IT
-        WHEN ANOTHER CLIENT APPEARS, SEND THAT + ALL ELSE TO IT
-    
+  👉 MAKE FLUTTER UI
 
-    client sent files
-    server forward to MA
-    MA -> files_added to server
-    server broadcast files_added
-    sender client will accpt gracefully
-
-    MA add files, directly, broadcast everyone
+  CHECK WHY SPEED TO FULL
 
 
-when master_app connects -> (first time), server send all clients, so master app can show and approve later
-
-if master app disconnects, ws just ignore all ws messages. no communication till masterapp returns. 
-  or maybe we should close our ws connection entirely, so no one send anything else
-  or maybe we should just stop ws, but keep allow http
-
-reconnect -> if a client disconnects, then set public_id to null; thus show connecting page.
-  ask periodically to connect.
-  when connect, ask server for all latest files.
-  then sync all files, and handle file changes
+  NEED TO DEFINE SERVER FUNCTIONALITY FULL ->
+        STRORE ALL CLIENTS ✅
+        STORE FILES METADATA   ❓  I SAY NO.
+        CHECK IF IF OWNER HAS CHUNK BEFORE REQUESTING 
+        OTHER CHECKS LIKE THAT
+        
 
 
 
@@ -76,7 +119,7 @@ reconnect -> if a client disconnects, then set public_id to null; thus show conn
 5. client / server reconnect - [via private id]
 6. make http req secure
 7.  remove lock from client or files, whatever dont work well with uthash. [!! need research !!]
-
+8. cur mode is broadcast only, later add restriction to it
 
 // CALL VICTOE -> Only Talk About Video and FYP. [MUST BE DONE THIS WEEKEND]
 
